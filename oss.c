@@ -31,14 +31,14 @@ int main(int argc, char *argv[]) {
 	pid_t childpids[5000]; 				// keep track of all spawned child pids
 	int maxConcSlaveProcesses = 5; 		// max concurrent child processes
 	char logFileName[50]; 				// name of log file
-	logFileName = "log.out"; 			// set default log file name
+	strncpy(logFileName, "log.out", sizeof(logFileName)); // set default log file name
 	int totalRunSeconds = 20; 			// set default total run time in seconds
 
 	//gather option flags
 	while ((opt = getopt(argc, argv, "hl:s:t:")) != -1) {
 		switch (opt) {
 		case 'l':
-			logFileName = optarg;
+			strncpy(logFileName, optarg, sizeof(logFileName));
 			if (DEBUG) printf("opt f detected: %s\n", logFileName);
 			break;
 		case 's':
@@ -72,19 +72,17 @@ int main(int argc, char *argv[]) {
 	if (DEBUG) printf("\n\nmaster %s: create shared memory\n", timeVal);
 	char* smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,1);
 	char* smOssUSeconds = create_shared_memory(OSS_USECONDS_KEY,1);
+	char* shmMsg = create_shared_memory(SHM_MSG_KEY,1);
 	char* smUserSeconds = create_shared_memory(USER_SECONDS_KEY,1);
 	char* smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,1);
 
-//	// attempt to insert all palin values into shared memory - not working properly
-//	if (DEBUG) for (int l = 0; l < palinValuesLength; l++) {
-//		if (DEBUG) printf("%s\n", palinValues[l]);
-//		// simple message example
-//		if (write_shared_memory(&sharedMemory[l], palinValues[l])) {
-//			getTime(timeVal);
-//			if (DEBUG) printf("master %s: write successful\n", timeVal);
-//		}
-//	}
-
+	write_shared_memory(smOssSeconds,1);
+	write_shared_memory(smOssUSeconds,999999999);
+	write_shared_memory(shmMsg,0);
+//	char secs[512];
+//	sprintf(secs, "%d:%d", 1, 2);
+//	memcpy(smOssSeconds, secs, sizeof(secs));
+//	memcpy(smOssUSeconds, 2);
 
 	if (argc < 1) { /* check for valid number of command-line arguments */
 		fprintf(stderr, "Usage: %s command arg1 arg2 ...\n", argv[0]);
@@ -108,12 +106,13 @@ int main(int argc, char *argv[]) {
 			}
 
 			// close all open shared memory
-			detatch_shared_memory(sharedMemory);
-			detatch_shared_memory(sharedMemory);
-			detatch_shared_memory(sharedMemory);
-			detatch_shared_memory(sharedMemory);
-
+			detach_shared_memory(smOssSeconds);
+			detach_shared_memory(smOssUSeconds);
+			detach_shared_memory(shmMsg);
+			detach_shared_memory(smUserSeconds);
+			detach_shared_memory(smUserUSeconds);
 			destroy_shared_memory();
+
 			printf("master: parent terminated due to a signal!\n\n");
 			exit(130);
 		}
@@ -123,33 +122,37 @@ int main(int argc, char *argv[]) {
 
 		// if total forked processes exceed the number of palindromes
 		// then we wait for them to exit and then break out of the while loop
-		if (i >= palinValuesLength) {
-			while (childProcessCount > 0) {
-
-				int status;
-				if (wait(&status) >= 0) {
-					getTime(timeVal);
-					printf("master %s: Child process exited with %d status\n", timeVal, WEXITSTATUS(status));
-					childProcessCount--; //because a child process completed
-				}
-
-				if (DEBUG) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
-			}
-			break;
-		}
+//		if (i >= palinValuesLength) {
+//			while (childProcessCount > 0) {
+//
+//				int status;
+//				if (wait(&status) >= 0) {
+//					getTime(timeVal);
+//					printf("master %s: Child process exited with %d status\n", timeVal, WEXITSTATUS(status));
+//					childProcessCount--; //because a child process completed
+//				}
+//
+//				if (DEBUG) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
+//			}
+//			break;
+//		}
 
 		// if we have forked up to the max concurrent child processes
 		// then we wait for one to exit before forking another
-		if (childProcessCount >= MAX_CONCURRENT_CHILD_PROCESSES) {
+		if (childProcessCount >= maxConcSlaveProcesses) {
 			getTime(timeVal);
-			printf("master %s: Maximum child processes (%d) reached.  Currently on %d of %d.  Waiting for a child to terminate\n", timeVal, childProcessCount, i + 1, palinValuesLength);
+			printf("master %s: Maximum child processes (%d) reached.  Waiting for a child to terminate\n", timeVal, childProcessCount);
 
-			int status;
-			if (wait(&status) >= 0) {
-				getTime(timeVal);
-				printf("master %s: Child process exited with %d status\n", timeVal, WEXITSTATUS(status));
-				childProcessCount--; //because a child process completed
-			}
+			while (atoi(shmMsg) == 0);
+
+			printf("master %s: Child process %d has sent a message: %d:%d\n", timeVal, atoi(shmMsg), atoi(smUserSeconds), atoi(smUserUSeconds));
+
+//			int status;
+//			if (wait(&status) >= 0) {
+//				getTime(timeVal);
+//				printf("master %s: Child process exited with %d status\n", timeVal, WEXITSTATUS(status));
+//				childProcessCount--; //because a child process completed
+//			}
 
 		}
 
@@ -168,7 +171,7 @@ int main(int argc, char *argv[]) {
 		if (childpid == 0) {
 			getTime(timeVal);
 			if (DEBUG) printf("master %s: Child (fork #%d from parent) will attempt to execl palin\n", timeVal, i);
-			execl("./palin", iStr, palinValues[i], NULL);
+			execl("./user", iStr, NULL);
 			perror("master: Child failed to execl() the command");
 			return 1;
 		}
@@ -187,10 +190,14 @@ int main(int argc, char *argv[]) {
 	} //end while loop
 
 	// clean up
-	detatch_shared_memory(sharedMemory);
+	detach_shared_memory(smOssSeconds);
+	detach_shared_memory(smOssUSeconds);
+	detach_shared_memory(shmMsg);
+	detach_shared_memory(smUserSeconds);
+	detach_shared_memory(smUserUSeconds);
 	destroy_shared_memory();
 	printf("master: parent terminated normally\n\n");
-	fclose(file);
+	fclose(logFile);
 	return 0;
 }
 

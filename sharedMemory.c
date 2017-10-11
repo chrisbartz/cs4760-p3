@@ -14,7 +14,7 @@
 #include <sys/shm.h>
 
 #define DEBUG 1
-#define SHMSIZE 512
+#define SHMSIZE 16
 
 int shmids[100]; // store all shmids generated
 int numShmids; // keep count of shmids generated
@@ -56,17 +56,19 @@ char* create_shared_memory(int shmKey, int isParent) {
 
 }
 
-char* detatch_shared_memory(char* shmpnt) {
+char* detach_shared_memory(char* shmpnt) {
 
-	if (DEBUG) printf("sharedMemory: Detatching shared memory segment\n");
+	if (DEBUG) printf("sharedMemory: Detaching shared memory segment\n");
 	shmdt(&shmpnt);
 
 }
 
-int write_shared_memory(char* sharedMemory, char* newdata) {
+int write_shared_memory(char* sharedMemory, int newdata) {
 
-	if (DEBUG) printf("sharedMemory: Writing to shared memory segment: %s\n", newdata);
-	strncpy(sharedMemory, newdata, SHMSIZE);
+	if (DEBUG) printf("sharedMemory: Writing to shared memory segment: %d\n", newdata);
+	char newdataString[SHMSIZE];
+	sprintf(newdataString,"%d",newdata);
+	strncpy(sharedMemory, newdataString, SHMSIZE);
 	return 1;
 
 }

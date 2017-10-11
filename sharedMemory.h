@@ -7,6 +7,7 @@
 #define SHAREDMEMORY_H_
 
 // set up shared memory keys for communication
+#define SHM_MSG_KEY 98753
 #define OSS_SECONDS_KEY 13579
 #define OSS_USECONDS_KEY 24680
 #define USER_SECONDS_KEY 05050
@@ -20,9 +21,9 @@
 
 char* create_shared_memory(int shmKey, int isParent);
 
-char* detatch_shared_memory(char* shmpnt);
+char* detach_shared_memory(char* shmpnt);
 
-int write_shared_memory(char* memory, char* newdata);
+int write_shared_memory(char* memory, int newdata);
 
 void destroy_shared_memory();
 

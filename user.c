@@ -12,67 +12,40 @@
 #include "sharedMemory.h"
 #include "timestamp.h"
 
-#define DEBUG 0 // setting to 1 greatly increases number of logging events
+#define DEBUG 1 // setting to 1 greatly increases number of logging events
 #define SLEEP_INTERVAL 2 // max time to sleep
 
-int isPalindrome; // holds result
+char* smOssSeconds;
+char* smOssUSeconds;
+char* shmMsg;
+char* smUserSeconds;
+char* smUserUSeconds;
+int childId;
 
-int solve_palindrome(char palin[]);
-void critical_section(char palin[]);
+void critical_section();
 
 
 int main(int argc, char *argv[]) {
-int childId = atoi(argv[0]); // saves the child id passed from the parent process
+childId = atoi(argv[0]); // saves the child id passed from the parent process
 char timeVal[30]; // formatted time values for logging
-srand(time(NULL)); // random generator for sleep
 
-// a quick check to make sure palin received a child id
+// a quick check to make sure user received a child id
 getTime(timeVal);
 if (childId < 0) {
-	if (DEBUG) fprintf(stderr, "palin  %s: Something wrong with child id: %d\n", timeVal, getpid());
+	if (DEBUG) fprintf(stderr, "user  %s: Something wrong with child id: %d\n", timeVal, getpid());
 	exit(1);
 } else {
-	if (DEBUG) fprintf(stdout, "palin  %s: Child %d started normally after execl\n", timeVal, (int) getpid());
-
-	char palin[100]; // stores the palindrome to be evaluated
-	strncpy(palin, argv[1], 100);
-	getTime(timeVal);
-	fprintf(stdout, "palin  %s: Child %d found a palindrome to solve: %s\n", timeVal, (int) getpid(), palin);
-
-	// solve paindrome
-	isPalindrome = solve_palindrome(palin);
-
-	// report results
-	getTime(timeVal);
-	if (isPalindrome)
-		fprintf(stdout, "palin  %s: Child %d found \"%s\" is a palindrome\n", timeVal, (int) getpid(), palin);
-	else
-		fprintf(stdout, "palin  %s: Child %d found \"%s\" is NOT a palindrome\n", timeVal, (int) getpid(), palin);
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d started normally after execl\n", timeVal, (int) getpid());
 
 	// attach to shared memory
-	char* sharedMemory = create_shared_memory(0);
-
-	// the more complicated shared messaging solution that ended up not working as expected
-//	char* entering;
-//	char* locked;
-//	read_control(sharedMemory, entering, locked);
-//	if (DEBUG) fprintf(stdout, "palin  %s: Child %d read shared memory: %s:%s\n", timeVal, (int) getpid(), entering, locked);
+	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,0);
+	smOssUSeconds = create_shared_memory(OSS_USECONDS_KEY,0);
+	shmMsg = create_shared_memory(SHM_MSG_KEY,0);
+	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,0);
+	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,0);
 
 	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "palin  %s: Child %d read shared memory: %s\n", timeVal, (int) getpid(), sharedMemory);
-
-	// testing for shared memory
-//	char message[] = "Hello everybody from child ";
-//	char id[8];
-//	sprintf(id, "%d", (int) getpid());
-//	strncat(message, id, sizeof(message));
-//	write_shared_memory(sharedMemory, message);
-
-	// determine the random amount of time to sleep
-	int forAWhile = (rand() % SLEEP_INTERVAL) + 1;
-	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "palin  %s: Child %d sleeping for %d seconds\n", timeVal, (int) getpid(), forAWhile);
-	sleep(forAWhile);
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d read time in shared memory: %d %d\n", timeVal, childId, atoi(smOssSeconds), atoi(smOssUSeconds));
 
 	// critical section
 	// this is where the multiple processor solution is supposed to be implemented if shared memory was working
@@ -101,7 +74,7 @@ if (childId < 0) {
 //			} while ((j < n) || (turn != i && flag[turn] != idle));
 //			// Assign turn to self and enter critical section
 //			turn = i;
-			critical_section(palin);
+			critical_section();
 //			// Exit section
 //			j = (turn + 1) % n;
 //			while (flag[j] == idle)
@@ -118,51 +91,40 @@ if (childId < 0) {
 
 
 	// clean up shared memory
-	detatch_shared_memory(sharedMemory);
+	detach_shared_memory(smOssSeconds);
+	detach_shared_memory(smOssUSeconds);
+	detach_shared_memory(smUserSeconds);
+	detach_shared_memory(smUserUSeconds);
+
 	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "palin  %s: Child %d exiting normally\n", timeVal, (int) getpid());
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d exiting normally\n", timeVal, (int) getpid());
 }
 exit(0);
 }
 
-// inspects first and last characters and moves 1 character towards the
-// middle if they match; if they mismatch then not a palindrome
-int solve_palindrome(char palin[]) {
-	char timeVal[30];
-	int lengthOfPalindrome = strlen(palin);
-	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "palin  %s: Child %d evaluating palindrome - length: %d\n", timeVal, (int) getpid(), lengthOfPalindrome);
-
-	for (int i = 0; i < lengthOfPalindrome/2; i++) {
-		getTime(timeVal);
-		char leading = palin[i];
-		char tailing = palin[lengthOfPalindrome - i - 1];
-		getTime(timeVal);
-		if (DEBUG) fprintf(stdout, "palin  %s: Child %d evaluating palindrome - i: %d l: %c t: %c\n", timeVal, (int) getpid(), i, leading, tailing);
-		if (leading != tailing) {
-			return 0;
-		}
-	}
-	return 1;
-}
 
 // this part should occur within the critical section if
 // implemented correctly since it accesses shared file resources
-void critical_section(char palin[]) {
+void critical_section() {
 	char timeVal[30];
 	getTime(timeVal);
-	fprintf(stdout, "palin  %s: Child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
-	if (DEBUG) fprintf(stdout, "palin  %s: Child %d opening file\n", timeVal, (int) getpid());
-	FILE *file;
-	if (isPalindrome) {
-		file = fopen("palin.out", "a");
-	} else {
-		file = fopen("nopalin.out", "a");
-	}
+	fprintf(stdout, "user  %s: Child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d opening file\n", timeVal, (int) getpid());
+//	FILE *file;
+//	if (isuserdrome) {
+//		file = fopen("user.out", "a");
+//	} else {
+//		file = fopen("nouser.out", "a");
+//	}
+	sleep(5);
+
+	write_shared_memory(smOssSeconds,1);
+	write_shared_memory(smOssUSeconds,999999999);
+	write_shared_memory(shmMsg,childId);
+
+//	fprintf(file, "%s\n", user);
 	//sleep(forAWhile);
-	fprintf(file, "%s\n", palin);
-	//sleep(forAWhile);
-	fclose(file);
+//	fclose(file);
 	getTime(timeVal);
-	fprintf(stdout, "palin  %s: Child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
+	fprintf(stdout, "user  %s: Child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
 }
