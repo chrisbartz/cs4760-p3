@@ -13,7 +13,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#define DEBUG 1
+#define DEBUG 0
 #define SHMSIZE 16
 
 int shmids[100]; // store all shmids generated

@@ -20,9 +20,19 @@
 
 int signalIntercepted = 0; 				// flag to keep track when sigint occurs
 int lastChildProcesses = -1;
+int ossSeconds;							// store seconds
+int ossUSeconds;						// store nanoseconds
+int quantum = 10000;					// how many nanoseconds to increment each loop
+
+char* smOssSeconds;
+char* smOssUSeconds;
+char* shmMsg;
+char* smUserSeconds;
+char* smUserUSeconds;
 
 //void trim_newline(char *string);
 void signal_handler(int signalIntercepted); // handle sigint interrupt
+void increment_clock(); // update oss clock in shared memory
 
 int main(int argc, char *argv[]) {
 	int childProcessCount = 0;			// number of child processes spawned
@@ -35,12 +45,17 @@ int main(int argc, char *argv[]) {
 	strncpy(logFileName, "log.out", sizeof(logFileName)); // set default log file name
 	int totalRunSeconds = 20; 			// set default total run time in seconds
 
+
 	//gather option flags
-	while ((opt = getopt(argc, argv, "hl:s:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "hl:q:s:t:")) != -1) {
 		switch (opt) {
 		case 'l': // set log file name
 			strncpy(logFileName, optarg, sizeof(logFileName));
 			if (DEBUG) printf("opt l detected: %s\n", logFileName);
+			break;
+		case 'q': // set quantum amount
+			quantum = atoi(optarg);
+			if (DEBUG) printf("opt q detected: %d\n", quantum);
 			break;
 		case 's': // set number of concurrent slave processes
 			maxConcSlaveProcesses = atoi(optarg);
@@ -71,19 +86,15 @@ int main(int argc, char *argv[]) {
 	// instantiate shared memory from oss
 	getTime(timeVal);
 	if (DEBUG) printf("\n\nmaster %s: create shared memory\n", timeVal);
-	char* smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,1);
-	char* smOssUSeconds = create_shared_memory(OSS_USECONDS_KEY,1);
-	char* shmMsg = create_shared_memory(SHM_MSG_KEY,1);
-	char* smUserSeconds = create_shared_memory(USER_SECONDS_KEY,1);
-	char* smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,1);
+	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,1);
+	smOssUSeconds = create_shared_memory(OSS_USECONDS_KEY,1);
+	shmMsg = create_shared_memory(SHM_MSG_KEY,1);
+	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,1);
+	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,1);
 
-	write_shared_memory(smOssSeconds,1);
-	write_shared_memory(smOssUSeconds,999999999);
+	write_shared_memory(smOssSeconds,0);
+	write_shared_memory(smOssUSeconds,0);
 	write_shared_memory(shmMsg,0);
-//	char secs[512];
-//	sprintf(secs, "%d:%d", 1, 2);
-//	memcpy(smOssSeconds, secs, sizeof(secs));
-//	memcpy(smOssUSeconds, 2);
 
 	if (argc < 1) { /* check for valid number of command-line arguments */
 		fprintf(stderr, "Usage: %s command arg1 arg2 ...\n", argv[0]);
@@ -151,18 +162,13 @@ int main(int argc, char *argv[]) {
 			if (atoi(shmMsg) == 0)
 				continue;
 
-			printf("master %s: Child process %d has sent a message: %d:%d\n", timeVal, atoi(shmMsg), atoi(smUserSeconds), atoi(smUserUSeconds));
+			printf("master %s: Child process %d has sent a message: %d.%d\n", timeVal, atoi(shmMsg), atoi(smUserSeconds), atoi(smUserUSeconds));
 
 			write_shared_memory(smOssSeconds, 0);
 			write_shared_memory(smOssUSeconds, 0);
 			write_shared_memory(shmMsg, 0);
-
-//			int status;
-//			if (wait(&status) >= 0) {
-//				getTime(timeVal);
-//				printf("master %s: Child process exited with %d status\n", timeVal, WEXITSTATUS(status));
-//				childProcessCount--; //because a child process completed
-//			}
+			childProcessCount--; //because a child process completed
+			lastChildProcesses--;
 
 		}
 
@@ -193,6 +199,7 @@ int main(int argc, char *argv[]) {
 
 			getTime(timeVal);
 			if (DEBUG) printf("master %s: parent forked child %d = childPid: %d\n", timeVal, i, (int) childpid);
+			increment_clock();
 		}
 
 		i++;
@@ -220,4 +227,19 @@ void trim_newline(char *string) {
 void signal_handler(int signal) {
 	if (DEBUG) printf("\nmaster: //////////// Encountered signal! //////////// \n\n");
 	signalIntercepted = 1;
+}
+
+void increment_clock() {
+	const int oneMillion = 1000000000;
+
+	ossUSeconds += quantum;
+
+	if (ossUSeconds >= oneMillion) {
+		ossSeconds++;
+		ossUSeconds -= oneMillion;
+	}
+
+	if (DEBUG) printf("master: updating oss clock to %d.%d\n", ossSeconds, ossUSeconds );
+	write_shared_memory(smOssSeconds, ossSeconds);
+	write_shared_memory(smOssUSeconds, ossUSeconds);
 }

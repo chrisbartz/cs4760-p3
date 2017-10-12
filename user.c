@@ -13,14 +13,21 @@
 #include "timestamp.h"
 
 #define DEBUG 1 // setting to 1 greatly increases number of logging events
-#define SLEEP_INTERVAL 2 // max time to sleep
+#define WAIT_INTERVAL 1000000 // max time to wait
 
 char* smOssSeconds;
 char* smOssUSeconds;
 char* shmMsg;
 char* smUserSeconds;
 char* smUserUSeconds;
-int childId;
+int childId; 				// store child id number assigned from parent
+int startSeconds;			// store oss seconds when initializing shared memory
+int startUSeconds;			// store oss nanoseconds when initializing shared memory
+int endSeconds;				// store oss seconds to exit
+int endUSeconds;			// store oss nanoseconds to exit
+int exitSeconds;			// store oss seconds when exiting
+int exitUSeconds;			// store oss nanoseconds when exiting
+
 
 void critical_section();
 void signal_handler(int signalIntercepted); // handle sigterm interrupt
@@ -28,6 +35,13 @@ void signal_handler(int signalIntercepted); // handle sigterm interrupt
 int main(int argc, char *argv[]) {
 childId = atoi(argv[0]); // saves the child id passed from the parent process
 char timeVal[30]; // formatted time values for logging
+time_t t;
+srand((unsigned)time(&t)); // random generator
+int interval = (rand() % WAIT_INTERVAL) + 1;
+const int oneMillion = 1000000000;
+
+// handle SIGTERM from parent
+signal(SIGTERM, signal_handler);
 
 // a quick check to make sure user received a child id
 getTime(timeVal);
@@ -44,8 +58,23 @@ if (childId < 0) {
 	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,0);
 	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,0);
 
+	startSeconds = atoi(smOssSeconds);
+	startUSeconds = atoi(smOssUSeconds);
+
+	endSeconds = startSeconds;
+	endUSeconds = startUSeconds + interval;
+
+	if (endUSeconds > oneMillion) {
+		endSeconds++;
+		endUSeconds -= oneMillion;
+	}
+
 	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d read time in shared memory: %d %d\n", timeVal, childId, atoi(smOssSeconds), atoi(smOssUSeconds));
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d read start time in shared memory: %d.%d\n"
+			"                               Child %d calculates end time: %d.%d\n",
+			timeVal, (int) getpid(), startSeconds, startUSeconds, (int) getpid(), endSeconds, endUSeconds);
+
+	while (atoi(smOssSeconds) < endSeconds && atoi(smOssUSeconds) < endUSeconds); // wait for the end
 
 	// critical section
 	// this is where the multiple processor solution is supposed to be implemented if shared memory was working
@@ -109,20 +138,18 @@ void critical_section() {
 	char timeVal[30];
 	getTime(timeVal);
 	fprintf(stdout, "user  %s: Child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d opening file\n", timeVal, (int) getpid());
-//	FILE *file;
-//	if (isuserdrome) {
-//		file = fopen("user.out", "a");
-//	} else {
-//		file = fopen("nouser.out", "a");
-//	}
-	sleep(5);
 
-	while (atoi(shmMsg) != 0);
 
-	write_shared_memory(shmMsg,childId);
-	write_shared_memory(smOssSeconds,1);
-	write_shared_memory(smOssUSeconds,999999999);
+	while (atoi(shmMsg) != 0); // wait until shmMsg is clear
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d updating shared memory\n", timeVal, (int) getpid());
+
+	//capture this moment in time
+	exitSeconds = atoi(smOssSeconds);
+	exitUSeconds = atoi(smOssUSeconds);
+
+	write_shared_memory(shmMsg, (int) getpid());
+	write_shared_memory(smUserSeconds, exitSeconds);
+	write_shared_memory(smUserUSeconds, exitUSeconds);
 
 //	fprintf(file, "%s\n", user);
 	//sleep(forAWhile);
@@ -131,7 +158,7 @@ void critical_section() {
 	fprintf(stdout, "user  %s: Child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
 }
 
-// handle the ^C interrupt
+// handle the interrupt
 void signal_handler(int signal) {
 	if (DEBUG) printf("child: //////////// Encountered signal! //////////// \n\n");
 	detach_shared_memory(smOssSeconds);
