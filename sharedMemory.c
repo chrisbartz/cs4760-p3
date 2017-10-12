@@ -37,6 +37,7 @@ char* create_shared_memory(int shmKey, int isParent) {
 			exit(1);
 		}
 	}
+//	if (DEBUG) printf("sharedMemory: Opened shared memory id: %d\n",shmid);
 
 	// check to see if shmid is already stored; if not then store shmid
 	for (int i = 0; i < numShmids; i++) {
@@ -76,6 +77,8 @@ int write_shared_memory(char* sharedMemory, int newdata) {
 void destroy_shared_memory() {
 	if (DEBUG) printf("sharedMemory: Destroying shared memory segments\n");
 	for (int i = 0; i < numShmids; i++) {
-		shmctl(shmids[i], IPC_RMID, NULL);
+		int status = shmctl(shmids[i], IPC_RMID, NULL) != 0;
+		if(status) printf("sharedMemory: Destroying shared memory segments error: %d\n", errno);
 	}
+
 }

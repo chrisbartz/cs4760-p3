@@ -23,7 +23,7 @@ char* smUserUSeconds;
 int childId;
 
 void critical_section();
-
+void signal_handler(int signalIntercepted); // handle sigterm interrupt
 
 int main(int argc, char *argv[]) {
 childId = atoi(argv[0]); // saves the child id passed from the parent process
@@ -118,13 +118,25 @@ void critical_section() {
 //	}
 	sleep(5);
 
+	while (atoi(shmMsg) != 0);
+
+	write_shared_memory(shmMsg,childId);
 	write_shared_memory(smOssSeconds,1);
 	write_shared_memory(smOssUSeconds,999999999);
-	write_shared_memory(shmMsg,childId);
 
 //	fprintf(file, "%s\n", user);
 	//sleep(forAWhile);
 //	fclose(file);
 	getTime(timeVal);
 	fprintf(stdout, "user  %s: Child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
+}
+
+// handle the ^C interrupt
+void signal_handler(int signal) {
+	if (DEBUG) printf("child: //////////// Encountered signal! //////////// \n\n");
+	detach_shared_memory(smOssSeconds);
+	detach_shared_memory(smOssUSeconds);
+	detach_shared_memory(smUserSeconds);
+	detach_shared_memory(smUserUSeconds);
+	exit(0);
 }

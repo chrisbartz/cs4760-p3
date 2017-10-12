@@ -19,6 +19,7 @@
 #define DEBUG 1 						// setting to 1 greatly increases number of logging events
 
 int signalIntercepted = 0; 				// flag to keep track when sigint occurs
+int lastChildProcesses = -1;
 
 //void trim_newline(char *string);
 void signal_handler(int signalIntercepted); // handle sigint interrupt
@@ -29,7 +30,7 @@ int main(int argc, char *argv[]) {
 	pid_t childpid;						// store child pid
 	char timeVal[30]; 					// store formatted time string for display in logging
 	pid_t childpids[5000]; 				// keep track of all spawned child pids
-	int maxConcSlaveProcesses = 5; 		// max concurrent child processes
+	int maxConcSlaveProcesses = 2; 		// max concurrent child processes
 	char logFileName[50]; 				// name of log file
 	strncpy(logFileName, "log.out", sizeof(logFileName)); // set default log file name
 	int totalRunSeconds = 20; 			// set default total run time in seconds
@@ -37,19 +38,19 @@ int main(int argc, char *argv[]) {
 	//gather option flags
 	while ((opt = getopt(argc, argv, "hl:s:t:")) != -1) {
 		switch (opt) {
-		case 'l':
+		case 'l': // set log file name
 			strncpy(logFileName, optarg, sizeof(logFileName));
-			if (DEBUG) printf("opt f detected: %s\n", logFileName);
+			if (DEBUG) printf("opt l detected: %s\n", logFileName);
 			break;
-		case 's':
+		case 's': // set number of concurrent slave processes
 			maxConcSlaveProcesses = atoi(optarg);
-			if (DEBUG) printf("opt f detected: %d\n", maxConcSlaveProcesses);
+			if (DEBUG) printf("opt s detected: %d\n", maxConcSlaveProcesses);
 			break;
-		case 't':
+		case 't': // set number of total run seconds
 			totalRunSeconds = atoi(optarg);
-			if (DEBUG) printf("opt f detected: %d\n", totalRunSeconds);
+			if (DEBUG) printf("opt t detected: %d\n", totalRunSeconds);
 			break;
-		case 'h':
+		case 'h': // print help message
 			if (DEBUG) printf("opt h detected\n");
 			fprintf(stderr,"Usage: ./%s <arguments>\n", argv[0]);
 			break;
@@ -104,6 +105,7 @@ int main(int argc, char *argv[]) {
 				printf("master: //////////// oss terminating child process %d //////////// \n", (int) childpids[p]);
 				kill(childpids[p], SIGTERM);
 			}
+			sleep(1);
 
 			// close all open shared memory
 			detach_shared_memory(smOssSeconds);
@@ -118,7 +120,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		getTime(timeVal);
-		if (DEBUG) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
+		if (DEBUG && lastChildProcesses != childProcessCount) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
 
 		// if total forked processes exceed the number of palindromes
 		// then we wait for them to exit and then break out of the while loop
@@ -141,11 +143,19 @@ int main(int argc, char *argv[]) {
 		// then we wait for one to exit before forking another
 		if (childProcessCount >= maxConcSlaveProcesses) {
 			getTime(timeVal);
-			printf("master %s: Maximum child processes (%d) reached.  Waiting for a child to terminate\n", timeVal, childProcessCount);
+			if (lastChildProcesses != childProcessCount) { // we only need to print this once per occurrence
+				printf("master %s: Maximum child processes (%d) reached.  Waiting for a child to terminate\n", timeVal, childProcessCount);
+				lastChildProcesses = childProcessCount;
+			}
 
-			while (atoi(shmMsg) == 0);
+			if (atoi(shmMsg) == 0)
+				continue;
 
 			printf("master %s: Child process %d has sent a message: %d:%d\n", timeVal, atoi(shmMsg), atoi(smUserSeconds), atoi(smUserUSeconds));
+
+			write_shared_memory(smOssSeconds, 0);
+			write_shared_memory(smOssUSeconds, 0);
+			write_shared_memory(shmMsg, 0);
 
 //			int status;
 //			if (wait(&status) >= 0) {
@@ -170,7 +180,7 @@ int main(int argc, char *argv[]) {
 		// child will execute
 		if (childpid == 0) {
 			getTime(timeVal);
-			if (DEBUG) printf("master %s: Child (fork #%d from parent) will attempt to execl palin\n", timeVal, i);
+			if (DEBUG) printf("master %s: Child (fork #%d from parent) will attempt to execl user\n", timeVal, i);
 			execl("./user", iStr, NULL);
 			perror("master: Child failed to execl() the command");
 			return 1;
