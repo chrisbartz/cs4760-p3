@@ -8,7 +8,7 @@
 
 #include "sharedMemory.h"
 
-#define DEBUG 0
+#define DEBUG 1
 #define SHMSIZE 16
 
 int shmids[100]; // store all shmids generated
@@ -78,6 +78,7 @@ void destroy_shared_memory() {
 }
 
 sem_t* open_semaphore(int createSemaphore) {
+	if (DEBUG) printf("sharedMemory: Creating semaphore\n");
 	if (createSemaphore)
 		return sem_open(SEM_NAME, O_CREAT|O_EXCL, 0660, 1);
 	else
@@ -85,5 +86,6 @@ sem_t* open_semaphore(int createSemaphore) {
 }
 
 void close_semaphore() {
+	if (DEBUG) printf("sharedMemory: closing semaphore\n");
 	sem_unlink(SEM_NAME);
 }

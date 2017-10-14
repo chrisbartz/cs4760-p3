@@ -113,12 +113,18 @@ int main(int argc, char *argv[]) {
 	write_shared_memory(smOssUSeconds,0);
 	write_shared_memory(shmMsg,0);
 
+	getTime(timeVal);
+	if (DEBUG) printf("master %s: create semaphore\n", timeVal);
 	// open semaphore
 	sem_t *sem = open_semaphore(1);
 
+	getTime(timeVal);
+	if (DEBUG) printf("master %s: create signal handler\n", timeVal);
 	//register signal handler
 	signal(SIGINT, signal_handler);
 
+	getTime(timeVal);
+	if (DEBUG) printf("master %s: entering main loop\n", timeVal);
 	// this is the main loop
 	while (1) {
 
