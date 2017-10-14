@@ -34,6 +34,6 @@ void destroy_shared_memory();
 
 sem_t* open_semaphore(int createSemaphore);
 
-void close_semaphore();
+void close_semaphore(sem_t *sem);
 
 #endif /* SHAREDMEMORY_H_ */

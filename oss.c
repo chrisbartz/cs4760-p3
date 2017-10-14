@@ -17,6 +17,7 @@
 #include "timestamp.h"
 
 #define DEBUG 1 						// setting to 1 greatly increases number of logging events
+#define VERBOSE 1
 #define TUNING 1
 
 //int i = 0;
@@ -116,19 +117,23 @@ int main(int argc, char *argv[]) {
 	write_shared_memory(shmMsg,0);
 
 	getTime(timeVal);
-	if (DEBUG) printf("master %s: create semaphore\n", timeVal);
+	if (DEBUG && VERBOSE) printf("master %s: create semaphore\n", timeVal);
 	// open semaphore
 	sem = open_semaphore(1);
 
 	getTime(timeVal);
-	if (DEBUG) printf("master %s: create signal handler\n", timeVal);
+	if (DEBUG && VERBOSE) printf("master %s: create signal handler\n", timeVal);
 	//register signal handler
 	signal(SIGINT, signal_handler);
 
 	getTime(timeVal);
-	if (DEBUG) printf("master %s: entering main loop\n", timeVal);
+	if (DEBUG && VERBOSE) printf("master %s: entering main loop\n", timeVal);
+
 	// this is the main loop
 	while (1) {
+
+		getTime(timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: signal check\n", timeVal);
 
 		//what to do when signal encountered
 		if (signalIntercepted) { // signalIntercepted is set by signal handler
@@ -138,8 +143,11 @@ int main(int argc, char *argv[]) {
 			kill_detach_destroy_exit(130);
 		}
 
-		getTime(timeVal);
+//		getTime(timeVal);
 //		if (DEBUG && lastChildProcesses != childProcessCount) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
+
+		getTime(timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: totalChildPRocessCount check\n", timeVal);
 
 		// we put limits on the number of processes and time
 		// if we hit limit then we kill em all
@@ -160,6 +168,9 @@ int main(int argc, char *argv[]) {
 			kill_detach_destroy_exit(0);
 		}
 
+		getTime(timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: increment clock\n", timeVal);
+
 		if (parentProcess && goClock) {
 			if (timeToStop == 0) {
 //				sleep(1);
@@ -172,6 +183,9 @@ int main(int argc, char *argv[]) {
 
 			increment_clock();
 		}
+
+		getTime(timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: childProcessCount check\n", timeVal);
 
 		// if we have forked up to the max concurrent child processes
 		// then we wait for one to exit before forking another
@@ -199,10 +213,16 @@ int main(int argc, char *argv[]) {
 
 		}
 
+		getTime(timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: pre fork\n", timeVal);
+
 		char iStr[1];
 		sprintf(iStr, "%d", totalChildProcessCount);
 
 		childpid = fork();
+
+		getTime(timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: post fork\n", timeVal);
 
 		// if error creating fork
 		if (childpid == -1) {
@@ -213,6 +233,9 @@ int main(int argc, char *argv[]) {
 		// child will execute
 		if (childpid == 0) {
 			getTime(timeVal);
+			if (DEBUG && VERBOSE) printf("master %s: child check\n", timeVal);
+
+			getTime(timeVal);
 //			if (DEBUG)
 				printf("master %s: Child (fork #%d from parent) will attempt to execl user\n", timeVal, totalChildProcessCount);
 			execl("./user", iStr, NULL);
@@ -220,8 +243,12 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 
+
 		// parent will execute
 		if (childpid != 0) {
+			getTime(timeVal);
+			if (DEBUG && VERBOSE) printf("master %s: parent check\n", timeVal);
+
 			parentProcess = 1;
 			childpids[totalChildProcessCount] = childpid; // save child pids in an array
 			childProcessCount++; // because we forked above
@@ -232,6 +259,8 @@ int main(int argc, char *argv[]) {
 
 		}
 
+		getTime(timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: end of while loop\n", timeVal);
 	} //end while loop
 
 	fclose(logFile);
@@ -284,7 +313,7 @@ void kill_detach_destroy_exit(int status) {
 	destroy_shared_memory();
 
 	// close semaphore
-	close_semaphore();
+	close_semaphore(sem);
 	sem_destroy(sem);
 
 	if (status == 0) printf("master: parent terminated normally \n\n");

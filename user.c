@@ -108,7 +108,7 @@ if (childId < 0) {
 	detach_shared_memory(smUserUSeconds);
 
 	// close semaphore
-	close_semaphore();
+	close_semaphore(sem);
 
 	getTime(timeVal);
 	if (DEBUG) fprintf(stdout, "user  %s: child %d exiting normally\n", timeVal, (int) getpid());
