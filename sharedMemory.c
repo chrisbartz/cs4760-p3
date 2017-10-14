@@ -60,7 +60,7 @@ char* detach_shared_memory(char* shmpnt) {
 }
 
 int write_shared_memory(char* sharedMemory, int newdata) {
-	if (DEBUG) printf("sharedMemory: Writing to shared memory segment: %d\n", newdata);
+//	if (DEBUG) printf("sharedMemory: Writing to shared memory segment: %d\n", newdata);
 	char newdataString[SHMSIZE];
 	sprintf(newdataString,"%016d",newdata);
 	strncpy(sharedMemory, newdataString, SHMSIZE);

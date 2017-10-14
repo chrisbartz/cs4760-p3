@@ -1,0 +1,5 @@
+master 2017-10-14 16:11:01.700: Child 17646 is terminating at my time 1.171980000 because it reached 1.171970000 in slave
+master 2017-10-14 16:11:01.707: Child 17645 is terminating at my time 1.176510000 because it reached 1.173610000 in slave
+master 2017-10-14 16:11:01.723: Child 17649 is terminating at my time 1.176520000 because it reached 1.176510000 in slave
+master 2017-10-14 16:11:01.758: Child 17648 is terminating at my time 1.178260000 because it reached 1.178230000 in slave
+master 2017-10-14 16:11:01.767: Child 17647 is terminating at my time 1.178610000 because it reached 0.000000000 in slave
