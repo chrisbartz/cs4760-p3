@@ -13,13 +13,16 @@
 #include "timestamp.h"
 
 #define DEBUG 0 // setting to 1 greatly increases number of logging events
-#define WAIT_INTERVAL 1000000 // max time to wait
+#define TUNING 1
+#define WAIT_INTERVAL 50000 // max time to wait
 
 char* smOssSeconds;
 char* smOssUSeconds;
 char* shmMsg;
 char* smUserSeconds;
 char* smUserUSeconds;
+char* smSemaphore;
+
 int childId; 				// store child id number assigned from parent
 int startSeconds;			// store oss seconds when initializing shared memory
 int startUSeconds;			// store oss nanoseconds when initializing shared memory
@@ -49,7 +52,7 @@ if (childId < 0) {
 	if (DEBUG) fprintf(stderr, "user  %s: Something wrong with child id: %d\n", timeVal, getpid());
 	exit(1);
 } else {
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d started normally after execl\n", timeVal, (int) getpid());
+	if (DEBUG) fprintf(stdout, "user  %s: child %d started normally after execl\n", timeVal, (int) getpid());
 
 	// attach to shared memory
 	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,0);
@@ -57,6 +60,7 @@ if (childId < 0) {
 	shmMsg = create_shared_memory(SHM_MSG_KEY,0);
 	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,0);
 	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,0);
+	smSemaphore = create_shared_memory(SEM_KEY,1);
 
 	startSeconds = atoi(smOssSeconds);
 	startUSeconds = atoi(smOssUSeconds);
@@ -70,55 +74,27 @@ if (childId < 0) {
 	}
 
 	getTime(timeVal);
-//	if (DEBUG)
-		fprintf(stdout, "user  %s: Child %d read start time in shared memory: %d.%09d\n"
-			"                               Child %d interval %09d calculates end time: %d.%09d\n",
-			timeVal, (int) getpid(), startSeconds, startUSeconds, (int) getpid(), interval, endSeconds, endUSeconds);
+	if (TUNING)
+		fprintf(stdout, "user  %s: child %d (#%d) read start time in shared memory:       %d.%09d\n"
+			"                               child %d (#%d) interval %09d calculates end time: %d.%09d\n",
+			timeVal, (int) getpid(), childId, startSeconds, startUSeconds, (int) getpid(), childId, interval, endSeconds, endUSeconds);
+
+	// open semaphore
+	sem_t *sem = open_semaphore(0);
 
 	while (!(atoi(smOssSeconds) > endSeconds && atoi(smOssUSeconds) > endUSeconds)); // wait for the end
 
 	// critical section
-	// this is where the multiple processor solution is supposed to be implemented if shared memory was working
-	int flag[500];
-	int idle = 0;
-	int want_in = 1;
-	int in_cs = 3;
-	int i = childId;
-	int j, n, turn;
+	// implemented with semaphores
 
-	//n = number_of_processes;
+	// wait for our turn
+	sem_wait(sem);
 
-//	do {
-//			do {
-//				flag[i] = want_in; // Raise my flag
-//				j = turn; // Set local variable
-//				// wait until its my turn
-//				while (j != i)
-//					j = (flag[j] != idle) ? turn : (j + 1) % n;
-//				// Declare intention to enter critical section
-//				flag[i] = in_cs;
-//				// Check that no one else is in critical section
-//				for (j = 0; j < n; j++)
-//					if ((j != i) && (flag[j] == in_cs))
-//						break;
-//			} while ((j < n) || (turn != i && flag[turn] != idle));
-//			// Assign turn to self and enter critical section
-//			turn = i;
-			critical_section();
-//			// Exit section
-//			j = (turn + 1) % n;
-//			while (flag[j] == idle)
-//				j = (j + 1) % n;
-//			// Assign turn to next waiting process; change own flag to idle
-//			turn = j;
-//			flag[i] = idle;
-//			remainder_section();
-//		} while (1);
+	// when it is our turn
+	critical_section();
 
-
-
-	// end critical section
-
+	// give up the turn
+	sem_post(sem);
 
 	// clean up shared memory
 	detach_shared_memory(smOssSeconds);
@@ -126,8 +102,11 @@ if (childId < 0) {
 	detach_shared_memory(smUserSeconds);
 	detach_shared_memory(smUserUSeconds);
 
+	// close semaphore
+	close_semaphore();
+
 	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d exiting normally\n", timeVal, (int) getpid());
+	if (DEBUG) fprintf(stdout, "user  %s: child %d exiting normally\n", timeVal, (int) getpid());
 }
 exit(0);
 }
@@ -137,13 +116,13 @@ exit(0);
 // implemented correctly since it accesses shared file resources
 void critical_section() {
 	char timeVal[30];
-	if (DEBUG) getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
+	if (TUNING) getTime(timeVal);
+	if (TUNING) fprintf(stdout, "user  %s: child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
 
 	while (atoi(shmMsg) != 0); // wait until shmMsg is clear
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d updating shared memory\n", timeVal, (int) getpid());
+	if (DEBUG) fprintf(stdout, "user  %s: child %d updating shared memory\n", timeVal, (int) getpid());
 
-	//capture this moment in time
+	// lets capture this moment in time
 	exitSeconds = atoi(smOssSeconds);
 	exitUSeconds = atoi(smOssUSeconds);
 
@@ -155,7 +134,7 @@ void critical_section() {
 	//sleep(forAWhile);
 //	fclose(file);
 	if (DEBUG) getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
+	if (TUNING) fprintf(stdout, "user  %s: child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
 }
 
 // handle the interrupt

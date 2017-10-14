@@ -17,6 +17,7 @@
 #include "timestamp.h"
 
 #define DEBUG 0 						// setting to 1 greatly increases number of logging events
+#define TUNING 1
 
 //int i = 0;
 int totalChildProcessCount = 0; 	// number of total child processes spawned
@@ -27,11 +28,15 @@ int ossSeconds;							// store seconds
 int ossUSeconds;						// store nanoseconds
 int quantum = 10000;					// how many nanoseconds to increment each loop
 
+long timeStarted = 0;					// when the OSS clock started
+long timeToStop = 0;					// when the OSS should exit in real time
+
 char* smOssSeconds;
 char* smOssUSeconds;
 char* shmMsg;
 char* smUserSeconds;
 char* smUserUSeconds;
+char* smSemaphore;
 pid_t childpids[5000]; 				// keep track of all spawned child pids
 
 //void trim_newline(char *string);
@@ -41,16 +46,17 @@ void kill_detach_destroy_exit(int status); // kill off all child processes and s
 
 int main(int argc, char *argv[]) {
 	int childProcessCount = 0;			// number of child processes spawned
-
 	int maxChildProcessCount = 100; 	// limit of total child processes spawned
 	int opt; 							// to support argument switches below
 	pid_t childpid;						// store child pid
 	char timeVal[30]; 					// store formatted time string for display in logging
 
-	int maxConcSlaveProcesses = 5; 		// max concurrent child processes
+	int maxConcSlaveProcesses = 20;		// max concurrent child processes
+	int maxOssTimeLimitSeconds = 5;
 	char logFileName[50]; 				// name of log file
 	strncpy(logFileName, "log.out", sizeof(logFileName)); // set default log file name
 	int totalRunSeconds = 20; 			// set default total run time in seconds
+	int goClock = 0;
 
 
 	//gather option flags
@@ -81,6 +87,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	if (argc < 1) { /* check for valid number of command-line arguments */
+			fprintf(stderr, "Usage: %s command arg1 arg2 ...\n", argv[0]);
+			return 1;
+	}
+
 	// open log file for writing
 	FILE *logFile;
 	logFile = fopen(logFileName,"w+");
@@ -98,16 +109,14 @@ int main(int argc, char *argv[]) {
 	shmMsg = create_shared_memory(SHM_MSG_KEY,1);
 	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,1);
 	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,1);
+	smSemaphore = create_shared_memory(SEM_KEY,1);
 
 	write_shared_memory(smOssSeconds,0);
 	write_shared_memory(smOssUSeconds,0);
 	write_shared_memory(shmMsg,0);
 
-	if (argc < 1) { /* check for valid number of command-line arguments */
-		fprintf(stderr, "Usage: %s command arg1 arg2 ...\n", argv[0]);
-		return 1;
-	}
-
+	// open semaphore
+	sem_t *sem = open_semaphore(1);
 
 	//register signal handler
 	signal(SIGINT, signal_handler);
@@ -126,18 +135,41 @@ int main(int argc, char *argv[]) {
 		getTime(timeVal);
 		if (DEBUG && lastChildProcesses != childProcessCount) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
 
-		// if total forked processes exceed the maximum number
-		// then we kill em all
-		if (totalChildProcessCount >= maxChildProcessCount
-				|| ossSeconds > 1) {
+		// we put limits on the number of processes and time
+		// if we hit limit then we kill em all
+		if (totalChildProcessCount >= maxChildProcessCount			// process count limit
+				|| ossSeconds >= maxOssTimeLimitSeconds || 			// OSS time limit
+				(timeToStop != 0 && timeToStop < getUnixTime())) { 	// real time limit
+
+			char typeOfLimit[50];
+			if (totalChildProcessCount >= maxChildProcessCount) strncpy(typeOfLimit,"process",50);
+			if (ossSeconds > maxOssTimeLimitSeconds ) strncpy(typeOfLimit,"OSS time",50);
+			if (timeToStop != 0 && timeToStop < getUnixTime()) strncpy(typeOfLimit,"real time",50);
+
+//			if (TUNING)
+				printf("\nmaster %s: Halting because of %s limit.\nTotal Processes: %d\nOSS Seconds: %d\nStop Time:    %ld\nCurrent Time: %ld\n",
+					timeVal, typeOfLimit, totalChildProcessCount, ossSeconds, timeToStop, getUnixTime());
+
 			kill_detach_destroy_exit(0);
 		}
 
-		if (parentProcess) increment_clock();
+		if (parentProcess && goClock) {
+			if (timeToStop == 0) {
+				sleep(1);
+				timeStarted = getUnixTime();
+				timeToStop = timeStarted + (1000 * totalRunSeconds);
+				getTime(timeVal);
+				if (TUNING)
+					printf("master %s: OSS starting clock.  Real start time: %ld  Real stop time: %ld\n", timeVal, timeStarted, timeToStop);
+			}
+
+			increment_clock();
+		}
 
 		// if we have forked up to the max concurrent child processes
 		// then we wait for one to exit before forking another
 		if (childProcessCount >= maxConcSlaveProcesses) {
+			goClock = 1;
 
 			// wait for child to send message
 			if (atoi(shmMsg) == 0)
@@ -149,9 +181,10 @@ int main(int argc, char *argv[]) {
 			fprintf(logFile,"master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
 					timeVal, atoi(shmMsg), ossSeconds, ossUSeconds, atoi(smUserSeconds), atoi(smUserUSeconds));
 
-			write_shared_memory(smOssSeconds, 0);
-			write_shared_memory(smOssUSeconds, 0);
+			write_shared_memory(smUserSeconds, 0);
+			write_shared_memory(smUserUSeconds, 0);
 			write_shared_memory(shmMsg, 0);
+
 			childProcessCount--; //because a child process completed
 			lastChildProcesses--;
 
@@ -185,7 +218,7 @@ int main(int argc, char *argv[]) {
 			totalChildProcessCount++;
 
 			getTime(timeVal);
-			if (DEBUG) printf("master %s: parent forked child %d = childPid: %d\n", timeVal, totalChildProcessCount, (int) childpid);
+			if (DEBUG || TUNING) printf("master %s: parent forked child %d = childPid: %d\n", timeVal, totalChildProcessCount, (int) childpid);
 
 		}
 
@@ -240,7 +273,11 @@ void kill_detach_destroy_exit(int status) {
 	detach_shared_memory(smUserSeconds);
 	detach_shared_memory(smUserUSeconds);
 	destroy_shared_memory();
-	if (status == 0) printf("master: parent terminated normally %d\n\n", totalChildProcessCount);
+
+	// close semaphore
+	close_semaphore();
+
+	if (status == 0) printf("master: parent terminated normally \n\n");
 
 	exit(status);
 }

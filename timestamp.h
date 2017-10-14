@@ -14,4 +14,6 @@
 
 void getTime(char* buffer);
 
+long getUnixTime();
+
 #endif /* TIMESTAMP_H_ */

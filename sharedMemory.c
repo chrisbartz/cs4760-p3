@@ -6,12 +6,7 @@
 //This was based from an example on stack overflow
 //https://stackoverflow.com/questions/5656530/how-to-use-shared-memory-with-linux-in-c
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
+#include "sharedMemory.h"
 
 #define DEBUG 0
 #define SHMSIZE 16
@@ -77,7 +72,18 @@ void destroy_shared_memory() {
 	if (DEBUG) printf("sharedMemory: Destroying shared memory segments\n");
 	for (int i = 0; i < numShmids; i++) {
 		int status = shmctl(shmids[i], IPC_RMID, NULL) != 0;
-		if(status) printf("sharedMemory: Destroying shared memory segments error: %d\n", errno);
+		if(DEBUG && status) printf("sharedMemory: Destroying shared memory segments error: %d\n", errno);
 	}
 
+}
+
+sem_t* open_semaphore(int createSemaphore) {
+	if (createSemaphore)
+		return sem_open(SEM_NAME, O_CREAT|O_EXCL, 0660, 1);
+	else
+		return sem_open(SEM_NAME, 0);
+}
+
+void close_semaphore() {
+	sem_unlink(SEM_NAME);
 }

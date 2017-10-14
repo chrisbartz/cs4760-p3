@@ -36,3 +36,13 @@ void getTime(char* buffer) {
 	  strcat(buffer,mils);
 	if (DEBUG) printf("timestamp: %s\n", buffer);
 }
+
+long getUnixTime() {
+	struct timeval  tv;
+	gettimeofday(&tv, NULL);
+
+	return (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000 ;
+}
+
+
+
