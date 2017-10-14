@@ -12,7 +12,7 @@
 #include "sharedMemory.h"
 #include "timestamp.h"
 
-#define DEBUG 1 // setting to 1 greatly increases number of logging events
+#define DEBUG 0 // setting to 1 greatly increases number of logging events
 #define WAIT_INTERVAL 1000000 // max time to wait
 
 char* smOssSeconds;
@@ -70,11 +70,12 @@ if (childId < 0) {
 	}
 
 	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "user  %s: Child %d read start time in shared memory: %d.%d\n"
-			"                               Child %d calculates end time: %d.%d\n",
-			timeVal, (int) getpid(), startSeconds, startUSeconds, (int) getpid(), endSeconds, endUSeconds);
+//	if (DEBUG)
+		fprintf(stdout, "user  %s: Child %d read start time in shared memory: %d.%09d\n"
+			"                               Child %d interval %09d calculates end time: %d.%09d\n",
+			timeVal, (int) getpid(), startSeconds, startUSeconds, (int) getpid(), interval, endSeconds, endUSeconds);
 
-	while (atoi(smOssSeconds) < endSeconds && atoi(smOssUSeconds) < endUSeconds); // wait for the end
+	while (!(atoi(smOssSeconds) > endSeconds && atoi(smOssUSeconds) > endUSeconds)); // wait for the end
 
 	// critical section
 	// this is where the multiple processor solution is supposed to be implemented if shared memory was working
@@ -136,9 +137,8 @@ exit(0);
 // implemented correctly since it accesses shared file resources
 void critical_section() {
 	char timeVal[30];
-	getTime(timeVal);
-	fprintf(stdout, "user  %s: Child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
-
+	if (DEBUG) getTime(timeVal);
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
 
 	while (atoi(shmMsg) != 0); // wait until shmMsg is clear
 	if (DEBUG) fprintf(stdout, "user  %s: Child %d updating shared memory\n", timeVal, (int) getpid());
@@ -154,8 +154,8 @@ void critical_section() {
 //	fprintf(file, "%s\n", user);
 	//sleep(forAWhile);
 //	fclose(file);
-	getTime(timeVal);
-	fprintf(stdout, "user  %s: Child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
+	if (DEBUG) getTime(timeVal);
+	if (DEBUG) fprintf(stdout, "user  %s: Child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
 }
 
 // handle the interrupt

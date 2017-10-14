@@ -28,7 +28,7 @@ void getTime(char* buffer) {
 	    tv.tv_sec++;
 	  }
 	  char mils[3];
-	  sprintf(mils, "%d", millisec);
+	  sprintf(mils, "%03d", millisec);
 
 	  tm_info = localtime(&tv.tv_sec);
 
