@@ -13,7 +13,6 @@
 #define USER_SECONDS_KEY 05050
 #define USER_USECONDS_KEY 03030
 #define SEM_NAME "cyb01b_p3"
-#define SEM_KEY 89897
 
 #include <fcntl.h>
 #include <stdio.h>

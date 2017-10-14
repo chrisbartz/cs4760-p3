@@ -12,7 +12,7 @@
 #include "sharedMemory.h"
 #include "timestamp.h"
 
-#define DEBUG 0 // setting to 1 greatly increases number of logging events
+#define DEBUG 1 // setting to 1 greatly increases number of logging events
 #define TUNING 1
 #define WAIT_INTERVAL 50000 // max time to wait
 
@@ -21,7 +21,6 @@ char* smOssUSeconds;
 char* shmMsg;
 char* smUserSeconds;
 char* smUserUSeconds;
-char* smSemaphore;
 
 int childId; 				// store child id number assigned from parent
 int startSeconds;			// store oss seconds when initializing shared memory
@@ -52,7 +51,8 @@ if (childId < 0) {
 	if (DEBUG) fprintf(stderr, "user  %s: Something wrong with child id: %d\n", timeVal, getpid());
 	exit(1);
 } else {
-	if (DEBUG) fprintf(stdout, "user  %s: child %d started normally after execl\n", timeVal, (int) getpid());
+	if (DEBUG)
+		fprintf(stdout, "user  %s: child %d (#%d) started normally after execl\n", timeVal, (int) getpid(), childId);
 
 	// attach to shared memory
 	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,0);
@@ -60,7 +60,6 @@ if (childId < 0) {
 	shmMsg = create_shared_memory(SHM_MSG_KEY,0);
 	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,0);
 	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,0);
-	smSemaphore = create_shared_memory(SEM_KEY,1);
 
 	startSeconds = atoi(smOssSeconds);
 	startUSeconds = atoi(smOssUSeconds);
@@ -90,8 +89,14 @@ if (childId < 0) {
 	// wait for our turn
 	sem_wait(sem);
 
+	getTime(timeVal);
+	if (TUNING) fprintf(stdout, "user  %s: child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
+
 	// when it is our turn
 	critical_section();
+
+	getTime(timeVal);
+	if (TUNING) fprintf(stdout, "user  %s: child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
 
 	// give up the turn
 	sem_post(sem);
@@ -115,12 +120,9 @@ exit(0);
 // this part should occur within the critical section if
 // implemented correctly since it accesses shared file resources
 void critical_section() {
-	char timeVal[30];
-	if (TUNING) getTime(timeVal);
-	if (TUNING) fprintf(stdout, "user  %s: child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
 
 	while (atoi(shmMsg) != 0); // wait until shmMsg is clear
-	if (DEBUG) fprintf(stdout, "user  %s: child %d updating shared memory\n", timeVal, (int) getpid());
+//	if (DEBUG) fprintf(stdout, "user  %s: child %d updating shared memory\n", timeVal, (int) getpid());
 
 	// lets capture this moment in time
 	exitSeconds = atoi(smOssSeconds);
@@ -130,11 +132,6 @@ void critical_section() {
 	write_shared_memory(smUserSeconds, exitSeconds);
 	write_shared_memory(smUserUSeconds, exitUSeconds);
 
-//	fprintf(file, "%s\n", user);
-	//sleep(forAWhile);
-//	fclose(file);
-	if (DEBUG) getTime(timeVal);
-	if (TUNING) fprintf(stdout, "user  %s: child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
 }
 
 // handle the interrupt
