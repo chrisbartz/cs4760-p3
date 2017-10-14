@@ -85,7 +85,8 @@ sem_t* open_semaphore(int createSemaphore) {
 		return sem_open(SEM_NAME, 0);
 }
 
-void close_semaphore() {
+void close_semaphore(sem_t *sem) {
 	if (DEBUG) printf("sharedMemory: closing semaphore\n");
 	sem_unlink(SEM_NAME);
+	sem_close(sem);
 }

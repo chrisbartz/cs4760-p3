@@ -38,6 +38,8 @@ char* smUserSeconds;
 char* smUserUSeconds;
 pid_t childpids[5000]; 				// keep track of all spawned child pids
 
+sem_t *sem;
+
 //void trim_newline(char *string);
 void signal_handler(int signalIntercepted); // handle sigint interrupt
 void increment_clock(); // update oss clock in shared memory
@@ -116,7 +118,7 @@ int main(int argc, char *argv[]) {
 	getTime(timeVal);
 	if (DEBUG) printf("master %s: create semaphore\n", timeVal);
 	// open semaphore
-	sem_t *sem = open_semaphore(1);
+	sem = open_semaphore(1);
 
 	getTime(timeVal);
 	if (DEBUG) printf("master %s: create signal handler\n", timeVal);
@@ -283,6 +285,7 @@ void kill_detach_destroy_exit(int status) {
 
 	// close semaphore
 	close_semaphore();
+	sem_destroy(sem);
 
 	if (status == 0) printf("master: parent terminated normally \n\n");
 
