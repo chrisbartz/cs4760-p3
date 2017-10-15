@@ -16,7 +16,7 @@
 #include "sharedMemory.h"
 #include "timestamp.h"
 
-#define DEBUG 1 						// setting to 1 greatly increases number of logging events
+#define DEBUG 0 						// setting to 1 greatly increases number of logging events
 #define VERBOSE 0
 #define TUNING 1
 
@@ -50,13 +50,13 @@ void kill_detach_destroy_exit(int status); // kill off all child processes and s
 
 int main(int argc, char *argv[]) {
 	int childProcessCount = 0;			// number of child processes spawned
-//	int maxChildProcessCount = 100; 	// limit of total child processes spawned
+	int maxChildProcessCount = 100; 	// limit of total child processes spawned
 	int opt; 							// to support argument switches below
 	pid_t childpid;						// store child pid
 	char timeVal[30]; 					// store formatted time string for display in logging
 
 	int maxConcSlaveProcesses = 5;		// max concurrent child processes
-	int maxOssTimeLimitSeconds = 10;
+	int maxOssTimeLimitSeconds = 2;
 	char logFileName[50]; 				// name of log file
 	strncpy(logFileName, "log.out", sizeof(logFileName)); // set default log file name
 	int totalRunSeconds = 20; 			// set default total run time in seconds
@@ -138,9 +138,6 @@ int main(int argc, char *argv[]) {
 	getTime(timeVal);
 	if (DEBUG && VERBOSE) printf("master %s: entering main loop\n", timeVal);
 
-	//moved for issues with hoare
-	int maxChildProcessCount = 100; 	// limit of total child processes spawned
-
 	// this is the main loop
 	while (1) {
 
@@ -185,7 +182,10 @@ int main(int argc, char *argv[]) {
 
 		if (parentProcess && goClock) {
 			if (timeToStop == 0) {
-//				sleep(1);
+				struct timespec timeperiod;
+				timeperiod.tv_sec = 0;
+				timeperiod.tv_nsec = 100 * 1000 * 1000;
+				nanosleep(&timeperiod, NULL);
 				timeStarted = getUnixTime();
 				timeToStop = timeStarted + (1000 * totalRunSeconds);
 				getTime(timeVal);
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
 
 			// wait for child to send message
 			if (p_shmMsg->userPid == 0)
-				continue;
+				continue; // jump back to the beginning of the loop if still waiting for message
 
 			getTime(timeVal);
 //			if (DEBUG)
@@ -216,9 +216,6 @@ int main(int argc, char *argv[]) {
 			fprintf(logFile,"master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
 					timeVal, p_shmMsg->userPid, ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
 
-//			write_shared_memory(smUserSeconds, 0);
-//			write_shared_memory(smUserUSeconds, 0);
-//			write_shared_memory(shmMsg, 0);
 			p_shmMsg->userSeconds = 0;
 			p_shmMsg->userUSeconds = 0;
 			p_shmMsg->userPid = 0;
@@ -237,7 +234,8 @@ int main(int argc, char *argv[]) {
 		childpid = fork();
 
 		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: post fork\n", timeVal);
+//		if (childpid == 0)
+			printf("master %s: child %d post fork childpid: %d\n", timeVal, getpid(), childpid);
 
 		// if error creating fork
 		if (childpid == -1) {
@@ -270,7 +268,7 @@ int main(int argc, char *argv[]) {
 			totalChildProcessCount++;
 
 			getTime(timeVal);
-			if (DEBUG || TUNING) printf("master %s: parent forked child %d at %d.%09d = childPid: %d\n", timeVal, totalChildProcessCount, ossSeconds, ossUSeconds, (int) childpid);
+			if (DEBUG || TUNING) printf("master %s: parent forked child %d at %d.%09d = childPid: %d\n", timeVal, totalChildProcessCount - 1, ossSeconds, ossUSeconds, (int) childpid);
 
 		}
 
@@ -308,8 +306,6 @@ void increment_clock() {
 
 //	if (DEBUG)
 //		printf("master: updating oss clock to %d.%09d\n", ossSeconds, ossUSeconds );
-//	write_shared_memory(smOssSeconds, ossSeconds);
-//	write_shared_memory(smOssUSeconds, ossUSeconds);
 	p_shmMsg->ossSeconds = ossSeconds;
 	p_shmMsg->ossUSeconds = ossUSeconds;
 
@@ -323,13 +319,6 @@ void kill_detach_destroy_exit(int status) {
 	}
 
 	// clean up
-//	detach_shared_memory(smOssSeconds);
-//	detach_shared_memory(smOssUSeconds);
-//	detach_shared_memory(shmMsg);
-//	detach_shared_memory(smUserSeconds);
-//	detach_shared_memory(smUserUSeconds);
-//	destroy_shared_memory();
-
 	shmdt(p_shmMsg);
 	shmctl(SHM_MSG_KEY, IPC_RMID, NULL);
 

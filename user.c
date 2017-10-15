@@ -34,7 +34,6 @@ int exitUSeconds;			// store oss nanoseconds when exiting
 
 
 void critical_section();
-void signal_handler(int signalIntercepted); // handle sigterm interrupt
 
 int main(int argc, char *argv[]) {
 childId = atoi(argv[0]); // saves the child id passed from the parent process
@@ -44,17 +43,14 @@ srand((unsigned)time(&t)); // random generator
 int interval = (rand() % WAIT_INTERVAL) + 1;
 const int oneMillion = 1000000000;
 
-// handle SIGTERM from parent
-signal(SIGTERM, signal_handler);
-
 // a quick check to make sure user received a child id
 getTime(timeVal);
 if (childId < 0) {
-	if (DEBUG) fprintf(stderr, "user  %s: Something wrong with child id: %d\n", timeVal, getpid());
+	if (DEBUG) fprintf(stderr, "user   %s: Something wrong with child id: %d\n", timeVal, getpid());
 	exit(1);
 } else {
 	if (DEBUG)
-		fprintf(stdout, "user  %s: child %d (#%d) started normally after execl\n", timeVal, (int) getpid(), childId);
+		fprintf(stdout, "user   %s: child %d (#%d) started normally after execl\n", timeVal, (int) getpid(), childId);
 
 	// attach to shared memory
 //	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,0);
@@ -65,7 +61,7 @@ if (childId < 0) {
 
 	// instantiate shared memory from oss
 	getTime(timeVal);
-	if (DEBUG) printf("user  %s: child %d (#%d) create shared memory\n", timeVal, (int) getpid(), childId);
+	if (DEBUG) printf("user   %s: child %d (#%d) create shared memory\n", timeVal, (int) getpid(), childId);
 
 	// refactored shared memory using struct
 	int shmid;
@@ -93,8 +89,8 @@ if (childId < 0) {
 
 	getTime(timeVal);
 	if (TUNING)
-		fprintf(stdout, "user  %s: child %d (#%d) read start time in shared memory:       %d.%09d\n"
-			"                               child %d (#%d) interval %09d calculates end time: %d.%09d\n",
+		fprintf(stdout, "user   %s: child %d (#%d) read start time in shared memory:        %d.%09d\n"
+			"                                child %d (#%d) interval .%09d calculates end time: %d.%09d\n",
 			timeVal, (int) getpid(), childId, startSeconds, startUSeconds, (int) getpid(), childId, interval, endSeconds, endUSeconds);
 
 	// open semaphore
@@ -109,13 +105,13 @@ if (childId < 0) {
 	sem_wait(sem);
 
 	getTime(timeVal);
-	if (TUNING) fprintf(stdout, "user  %s: child %d entering CRITICAL SECTION\n", timeVal, (int) getpid());
+	if (TUNING) fprintf(stdout, "user   %s: child %d (#%d) entering CRITICAL SECTION\n", timeVal, (int) getpid(), childId);
 
 	// when it is our turn
 	critical_section();
 
 	getTime(timeVal);
-	if (TUNING) fprintf(stdout, "user  %s: child %d exiting CRITICAL SECTION\n", timeVal, (int) getpid());
+	if (TUNING) fprintf(stdout, "user   %s: child %d (#%d) exiting CRITICAL SECTION\n", timeVal, (int) getpid(), childId);
 
 	// give up the turn
 	sem_post(sem);
@@ -131,7 +127,7 @@ if (childId < 0) {
 	close_semaphore(sem);
 
 	getTime(timeVal);
-	if (DEBUG) fprintf(stdout, "user  %s: child %d exiting normally\n", timeVal, (int) getpid());
+	if (DEBUG) fprintf(stdout, "user   %s: child %d (#%d) exiting normally\n", timeVal, (int) getpid(), childId);
 }
 exit(0);
 }
@@ -152,15 +148,4 @@ void critical_section() {
 	p_shmMsg->userSeconds = exitSeconds;
 	p_shmMsg->userUSeconds = exitUSeconds;
 
-}
-
-// handle the interrupt
-void signal_handler(int signal) {
-	if (DEBUG) printf("child: //////////// Encountered signal! //////////// \n\n");
-//	detach_shared_memory(smOssSeconds);
-//	detach_shared_memory(smOssUSeconds);
-//	detach_shared_memory(smUserSeconds);
-//	detach_shared_memory(smUserUSeconds);
-	shmdt(p_shmMsg);
-	exit(0);
 }
