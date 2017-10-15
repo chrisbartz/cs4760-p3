@@ -65,7 +65,7 @@ if (childId < 0) {
 
 	// instantiate shared memory from oss
 	getTime(timeVal);
-	if (DEBUG) printf("\n\nmaster %s: create shared memory\n", timeVal);
+	if (DEBUG) printf("user  %s: child %d (#%d) create shared memory\n", timeVal, (int) getpid(), childId);
 
 	// refactored shared memory using struct
 	int shmid;

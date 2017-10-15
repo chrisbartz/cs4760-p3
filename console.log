@@ -1,0 +1,84 @@
+user  2017-10-15 14:23:06.014: child 23313 (#0) started normally after execl
+user 2017-10-15 14:23:06.015: child 23313 (#0) create shared memory
+user  2017-10-15 14:23:06.015: child 23313 (#0) read start time in shared memory:       1.313800000
+                               child 23313 (#0) interval 000011218 calculates end time: 1.313811218
+sharedMemory: Creating semaphore
+user  2017-10-15 14:23:08.738: child 23313 entering CRITICAL SECTION
+user  2017-10-15 14:23:08.738: child 23313 exiting CRITICAL SECTION
+sharedMemory: closing semaphore
+user  2017-10-15 14:23:08.738: child 23313 exiting normally
+user  2017-10-15 14:23:06.012: child 23314 (#1) started normally after execl
+user 2017-10-15 14:23:06.012: child 23314 (#1) create shared memory
+user  2017-10-15 14:23:06.012: child 23314 (#1) read start time in shared memory:       1.311060000
+                               child 23314 (#1) interval 000011218 calculates end time: 1.311071218
+sharedMemory: Creating semaphore
+user  2017-10-15 14:23:08.738: child 23314 entering CRITICAL SECTION
+user  2017-10-15 14:23:08.738: child 23314 exiting CRITICAL SECTION
+sharedMemory: closing semaphore
+user  2017-10-15 14:23:08.739: child 23314 exiting normally
+user  2017-10-15 14:23:06.024: child 23316 (#3) started normally after execl
+user 2017-10-15 14:23:06.024: child 23316 (#3) create shared memory
+user  2017-10-15 14:23:06.024: child 23316 (#3) read start time in shared memory:       1.325400000
+                               child 23316 (#3) interval 000011218 calculates end time: 1.325411218
+sharedMemory: Creating semaphore
+user  2017-10-15 14:23:08.761: child 23316 entering CRITICAL SECTION
+user  2017-10-15 14:23:08.761: child 23316 exiting CRITICAL SECTION
+sharedMemory: closing semaphore
+user  2017-10-15 14:23:08.761: child 23316 exiting normally
+user  2017-10-15 14:23:06.032: child 23315 (#2) started normally after execl
+user 2017-10-15 14:23:06.032: child 23315 (#2) create shared memory
+user  2017-10-15 14:23:06.032: child 23315 (#2) read start time in shared memory:       1.334250000
+                               child 23315 (#2) interval 000011218 calculates end time: 1.334261218
+sharedMemory: Creating semaphore
+user  2017-10-15 14:23:08.781: child 23315 entering CRITICAL SECTION
+user  2017-10-15 14:23:08.781: child 23315 exiting CRITICAL SECTION
+sharedMemory: closing semaphore
+user  2017-10-15 14:23:08.782: child 23315 exiting normally
+user  2017-10-15 14:23:06.028: child 23317 (#4) started normally after execl
+user 2017-10-15 14:23:06.029: child 23317 (#4) create shared memory
+user  2017-10-15 14:23:06.029: child 23317 (#4) read start time in shared memory:       1.330350000
+                               child 23317 (#4) interval 000011218 calculates end time: 1.330361218
+sharedMemory: Creating semaphore
+user  2017-10-15 14:23:08.782: child 23317 entering CRITICAL SECTION
+user  2017-10-15 14:23:08.782: child 23317 exiting CRITICAL SECTION
+sharedMemory: closing semaphore
+user  2017-10-15 14:23:08.782: child 23317 exiting normally
+
+
+master 2017-10-15 14:23:04.860: create shared memory
+sharedMemory: Creating semaphore
+master 2017-10-15 14:23:04.861: parent forked child 1 at 0.000000000 = childPid: 23313
+master 2017-10-15 14:23:04.862: parent forked child 2 at 0.000000000 = childPid: 23314
+master 2017-10-15 14:23:04.862: parent forked child 3 at 0.000000000 = childPid: 23315
+master 2017-10-15 14:23:04.862: parent forked child 4 at 0.000000000 = childPid: 23316
+master 2017-10-15 14:23:04.863: parent forked child 5 at 0.000000000 = childPid: 23317
+master 2017-10-15 14:23:04.863: OSS starting clock.  Real start time: 1508095384863  Real stop time: 1508095404863
+master 2017-10-15 14:23:08.738: Child 23313 is terminating at my time 2.313920000 because it reached 2.313900000 in slave
+master 2017-10-15 14:23:08.743: parent forked child 6 at 2.313920000 = childPid: 23318
+master 2017-10-15 14:23:08.743: Child 23314 is terminating at my time 2.313930000 because it reached 2.313920000 in slave
+master 2017-10-15 14:23:08.745: parent forked child 7 at 2.313930000 = childPid: 23319
+master 2017-10-15 14:23:08.761: Child 23316 is terminating at my time 2.325470000 because it reached 2.325460000 in slave
+master 2017-10-15 14:23:08.761: parent forked child 8 at 2.325470000 = childPid: 23320
+master 2017-10-15 14:23:08.781: Child 23315 is terminating at my time 2.334330000 because it reached 2.334320000 in slave
+master 2017-10-15 14:23:08.782: parent forked child 9 at 2.334330000 = childPid: 23321
+master 2017-10-15 14:23:08.782: Child 23317 is terminating at my time 2.334340000 because it reached 2.334330000 in slave
+master 2017-10-15 14:23:08.782: parent forked child 10 at 2.334340000 = childPid: 23322
+
+master 2017-10-15 14:23:21.918: Halting .
+Total Processes: 10
+OSS Seconds: 10
+Stop Time:    1508095404863
+Current Time: 1508095401918
+master: //////////// oss terminating child process 23313 //////////// 
+master: //////////// oss terminating child process 23314 //////////// 
+master: //////////// oss terminating child process 23315 //////////// 
+master: //////////// oss terminating child process 23316 //////////// 
+master: //////////// oss terminating child process 23317 //////////// 
+master: //////////// oss terminating child process 23318 //////////// 
+master: //////////// oss terminating child process 23319 //////////// 
+master: //////////// oss terminating child process 23320 //////////// 
+master: //////////// oss terminating child process 23321 //////////// 
+master: //////////// oss terminating child process 23322 //////////// 
+sharedMemory: closing semaphore
+master: parent terminated normally 
+
