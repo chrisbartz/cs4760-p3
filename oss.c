@@ -17,7 +17,7 @@
 #include "timestamp.h"
 
 #define DEBUG 1 						// setting to 1 greatly increases number of logging events
-#define VERBOSE 1
+#define VERBOSE 0
 #define TUNING 1
 
 //int i = 0;
@@ -48,7 +48,7 @@ void kill_detach_destroy_exit(int status); // kill off all child processes and s
 
 int main(int argc, char *argv[]) {
 	int childProcessCount = 0;			// number of child processes spawned
-	int maxChildProcessCount = 100; 	// limit of total child processes spawned
+//	int maxChildProcessCount = 100; 	// limit of total child processes spawned
 	int opt; 							// to support argument switches below
 	pid_t childpid;						// store child pid
 	char timeVal[30]; 					// store formatted time string for display in logging
@@ -129,6 +129,9 @@ int main(int argc, char *argv[]) {
 	getTime(timeVal);
 	if (DEBUG && VERBOSE) printf("master %s: entering main loop\n", timeVal);
 
+	//moved for issues with hoare
+	int maxChildProcessCount = 100; 	// limit of total child processes spawned
+
 	// this is the main loop
 	while (1) {
 
@@ -147,7 +150,7 @@ int main(int argc, char *argv[]) {
 //		if (DEBUG && lastChildProcesses != childProcessCount) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
 
 		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: totalChildPRocessCount check\n", timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: totalChildProcessCount check\n", timeVal);
 
 		// we put limits on the number of processes and time
 		// if we hit limit then we kill em all
