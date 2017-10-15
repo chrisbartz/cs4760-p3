@@ -205,16 +205,16 @@ int main(int argc, char *argv[]) {
 			goClock = 1;
 
 			// wait for child to send message
-			if (atoi(shmMsg) == 0)
+			if (p_shmMsg->userPid == 0)
 				continue;
 
 			getTime(timeVal);
 //			if (DEBUG)
 //				printf("master %s: Child process %d has sent a message: %d.%09d\n", timeVal, atoi(shmMsg), atoi(smUserSeconds), atoi(smUserUSeconds));
 				printf("master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
-						timeVal, atoi(shmMsg), ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
+						timeVal, p_shmMsg->userPid, ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
 			fprintf(logFile,"master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
-					timeVal, atoi(shmMsg), ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
+					timeVal, p_shmMsg->userPid, ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
 
 //			write_shared_memory(smUserSeconds, 0);
 //			write_shared_memory(smUserUSeconds, 0);
