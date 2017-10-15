@@ -32,11 +32,13 @@ int quantum = 10000;					// how many nanoseconds to increment each loop
 long timeStarted = 0;					// when the OSS clock started
 long timeToStop = 0;					// when the OSS should exit in real time
 
-char* smOssSeconds;
-char* smOssUSeconds;
-char* shmMsg;
-char* smUserSeconds;
-char* smUserUSeconds;
+//char* smOssSeconds;
+//char* smOssUSeconds;
+//char* shmMsg;
+//char* smUserSeconds;
+//char* smUserUSeconds;
+SmTimeStruct shmMsg;
+SmTimeStruct *p_shmMsg;
 pid_t childpids[5000]; 				// keep track of all spawned child pids
 
 sem_t *sem;
@@ -106,15 +108,22 @@ int main(int argc, char *argv[]) {
 	// instantiate shared memory from oss
 	getTime(timeVal);
 	if (DEBUG) printf("\n\nmaster %s: create shared memory\n", timeVal);
-	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,1);
-	smOssUSeconds = create_shared_memory(OSS_USECONDS_KEY,1);
-	shmMsg = create_shared_memory(SHM_MSG_KEY,1);
-	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,1);
-	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,1);
 
-	write_shared_memory(smOssSeconds,0);
-	write_shared_memory(smOssUSeconds,0);
-	write_shared_memory(shmMsg,0);
+	// refactored shared memory using struct
+	int shmid;
+	if ((shmid = shmget(SHM_MSG_KEY, SHMSIZE, IPC_CREAT | 0660)) == -1) {
+		fprintf(stderr, "sharedMemory: shmget error code: %d", errno);
+		perror("sharedMemory: Creating shared memory segment failed\n");
+		exit(1);
+	}
+	p_shmMsg = &shmMsg;
+	p_shmMsg = shmat(shmid,NULL,0);
+
+	p_shmMsg->ossSeconds = 0;
+	p_shmMsg->ossUSeconds = 0;
+	p_shmMsg->userSeconds = 0;
+	p_shmMsg->userUSeconds = 0;
+	p_shmMsg->userPid = 0;
 
 	getTime(timeVal);
 	if (DEBUG && VERBOSE) printf("master %s: create semaphore\n", timeVal);
@@ -203,13 +212,16 @@ int main(int argc, char *argv[]) {
 //			if (DEBUG)
 //				printf("master %s: Child process %d has sent a message: %d.%09d\n", timeVal, atoi(shmMsg), atoi(smUserSeconds), atoi(smUserUSeconds));
 				printf("master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
-						timeVal, atoi(shmMsg), ossSeconds, ossUSeconds, atoi(smUserSeconds), atoi(smUserUSeconds));
+						timeVal, atoi(shmMsg), ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
 			fprintf(logFile,"master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
-					timeVal, atoi(shmMsg), ossSeconds, ossUSeconds, atoi(smUserSeconds), atoi(smUserUSeconds));
+					timeVal, atoi(shmMsg), ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
 
-			write_shared_memory(smUserSeconds, 0);
-			write_shared_memory(smUserUSeconds, 0);
-			write_shared_memory(shmMsg, 0);
+//			write_shared_memory(smUserSeconds, 0);
+//			write_shared_memory(smUserUSeconds, 0);
+//			write_shared_memory(shmMsg, 0);
+			p_shmMsg->userSeconds = 0;
+			p_shmMsg->userUSeconds = 0;
+			p_shmMsg->userPid = 0;
 
 			childProcessCount--; //because a child process completed
 			lastChildProcesses = childProcessCount;
@@ -296,8 +308,11 @@ void increment_clock() {
 
 //	if (DEBUG)
 //		printf("master: updating oss clock to %d.%09d\n", ossSeconds, ossUSeconds );
-	write_shared_memory(smOssSeconds, ossSeconds);
-	write_shared_memory(smOssUSeconds, ossUSeconds);
+//	write_shared_memory(smOssSeconds, ossSeconds);
+//	write_shared_memory(smOssUSeconds, ossUSeconds);
+	p_shmMsg->ossSeconds = ossSeconds;
+	p_shmMsg->ossUSeconds = ossUSeconds;
+
 }
 
 void kill_detach_destroy_exit(int status) {
@@ -308,12 +323,15 @@ void kill_detach_destroy_exit(int status) {
 	}
 
 	// clean up
-	detach_shared_memory(smOssSeconds);
-	detach_shared_memory(smOssUSeconds);
-	detach_shared_memory(shmMsg);
-	detach_shared_memory(smUserSeconds);
-	detach_shared_memory(smUserUSeconds);
-	destroy_shared_memory();
+//	detach_shared_memory(smOssSeconds);
+//	detach_shared_memory(smOssUSeconds);
+//	detach_shared_memory(shmMsg);
+//	detach_shared_memory(smUserSeconds);
+//	detach_shared_memory(smUserUSeconds);
+//	destroy_shared_memory();
+
+	shmdt(p_shmMsg);
+	shmctl(SHM_MSG_KEY, IPC_RMID, NULL);
 
 	// close semaphore
 	close_semaphore(sem);

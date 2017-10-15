@@ -16,11 +16,13 @@
 #define TUNING 1
 #define WAIT_INTERVAL 50000 // max time to wait
 
-char* smOssSeconds;
-char* smOssUSeconds;
-char* shmMsg;
-char* smUserSeconds;
-char* smUserUSeconds;
+//char* smOssSeconds;
+//char* smOssUSeconds;
+//char* shmMsg;
+//char* smUserSeconds;
+//char* smUserUSeconds;
+SmTimeStruct shmMsg;
+SmTimeStruct *p_shmMsg;
 
 int childId; 				// store child id number assigned from parent
 int startSeconds;			// store oss seconds when initializing shared memory
@@ -55,14 +57,31 @@ if (childId < 0) {
 		fprintf(stdout, "user  %s: child %d (#%d) started normally after execl\n", timeVal, (int) getpid(), childId);
 
 	// attach to shared memory
-	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,0);
-	smOssUSeconds = create_shared_memory(OSS_USECONDS_KEY,0);
-	shmMsg = create_shared_memory(SHM_MSG_KEY,0);
-	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,0);
-	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,0);
+//	smOssSeconds = create_shared_memory(OSS_SECONDS_KEY,0);
+//	smOssUSeconds = create_shared_memory(OSS_USECONDS_KEY,0);
+//	shmMsg = create_shared_memory(SHM_MSG_KEY,0);
+//	smUserSeconds = create_shared_memory(USER_SECONDS_KEY,0);
+//	smUserUSeconds = create_shared_memory(USER_USECONDS_KEY,0);
 
-	startSeconds = atoi(smOssSeconds);
-	startUSeconds = atoi(smOssUSeconds);
+	// instantiate shared memory from oss
+	getTime(timeVal);
+	if (DEBUG) printf("\n\nmaster %s: create shared memory\n", timeVal);
+
+	// refactored shared memory using struct
+	int shmid;
+	if ((shmid = shmget(SHM_MSG_KEY, SHMSIZE, 0660)) == -1) {
+		fprintf(stderr, "sharedMemory: shmget error code: %d", errno);
+		perror("sharedMemory: Creating shared memory segment failed\n");
+		exit(1);
+	}
+	p_shmMsg = &shmMsg;
+	p_shmMsg = shmat(shmid, NULL, 0);
+
+	startSeconds = p_shmMsg->ossSeconds;
+	startUSeconds = p_shmMsg->ossUSeconds;
+
+//	startSeconds = atoi(smOssSeconds);
+//	startUSeconds = atoi(smOssUSeconds);
 
 	endSeconds = startSeconds;
 	endUSeconds = startUSeconds + interval;
@@ -81,7 +100,7 @@ if (childId < 0) {
 	// open semaphore
 	sem_t *sem = open_semaphore(0);
 
-	while (!(atoi(smOssSeconds) > endSeconds && atoi(smOssUSeconds) > endUSeconds)); // wait for the end
+	while (!(p_shmMsg->ossSeconds > endSeconds && p_shmMsg->ossUSeconds > endUSeconds)); // wait for the end
 
 	// critical section
 	// implemented with semaphores
@@ -102,10 +121,11 @@ if (childId < 0) {
 	sem_post(sem);
 
 	// clean up shared memory
-	detach_shared_memory(smOssSeconds);
-	detach_shared_memory(smOssUSeconds);
-	detach_shared_memory(smUserSeconds);
-	detach_shared_memory(smUserUSeconds);
+//	detach_shared_memory(smOssSeconds);
+//	detach_shared_memory(smOssUSeconds);
+//	detach_shared_memory(smUserSeconds);
+//	detach_shared_memory(smUserUSeconds);
+	shmdt(p_shmMsg);
 
 	// close semaphore
 	close_semaphore(sem);
@@ -121,25 +141,26 @@ exit(0);
 // implemented correctly since it accesses shared file resources
 void critical_section() {
 
-	while (atoi(shmMsg) != 0); // wait until shmMsg is clear
+	while (p_shmMsg->userPid != 0); // wait until shmMsg is clear
 //	if (DEBUG) fprintf(stdout, "user  %s: child %d updating shared memory\n", timeVal, (int) getpid());
 
 	// lets capture this moment in time
-	exitSeconds = atoi(smOssSeconds);
-	exitUSeconds = atoi(smOssUSeconds);
+	exitSeconds = p_shmMsg->ossSeconds;
+	exitUSeconds = p_shmMsg->ossUSeconds;
 
-	write_shared_memory(shmMsg, (int) getpid());
-	write_shared_memory(smUserSeconds, exitSeconds);
-	write_shared_memory(smUserUSeconds, exitUSeconds);
+	p_shmMsg->userPid = (int) getpid();
+	p_shmMsg->userSeconds = exitSeconds;
+	p_shmMsg->userUSeconds = exitUSeconds;
 
 }
 
 // handle the interrupt
 void signal_handler(int signal) {
 	if (DEBUG) printf("child: //////////// Encountered signal! //////////// \n\n");
-	detach_shared_memory(smOssSeconds);
-	detach_shared_memory(smOssUSeconds);
-	detach_shared_memory(smUserSeconds);
-	detach_shared_memory(smUserUSeconds);
+//	detach_shared_memory(smOssSeconds);
+//	detach_shared_memory(smOssUSeconds);
+//	detach_shared_memory(smUserSeconds);
+//	detach_shared_memory(smUserUSeconds);
+	shmdt(p_shmMsg);
 	exit(0);
 }
