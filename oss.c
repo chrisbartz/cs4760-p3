@@ -16,13 +16,12 @@
 #include "sharedMemory.h"
 #include "timestamp.h"
 
-#define DEBUG 0 						// setting to 1 greatly increases number of logging events
-#define VERBOSE 0
+#define DEBUG 1 						// setting to 1 greatly increases number of logging events
+#define VERBOSE 1
 #define TUNING 1
 
 //int i = 0;
 int totalChildProcessCount = 0; 	// number of total child processes spawned
-int parentProcess = 0;
 int signalIntercepted = 0; 				// flag to keep track when sigint occurs
 int lastChildProcesses = -1;
 int ossSeconds;							// store seconds
@@ -125,13 +124,13 @@ int main(int argc, char *argv[]) {
 	p_shmMsg->userUSeconds = 0;
 	p_shmMsg->userPid = 0;
 
-	getTime(timeVal);
-	if (DEBUG && VERBOSE) printf("master %s: create semaphore\n", timeVal);
+//	getTime(timeVal);
+//	if (DEBUG && VERBOSE) printf("master %s: create semaphore\n", timeVal);
 	// open semaphore
 	sem = open_semaphore(1);
 
-	getTime(timeVal);
-	if (DEBUG && VERBOSE) printf("master %s: create signal handler\n", timeVal);
+//	getTime(timeVal);
+//	if (DEBUG && VERBOSE) printf("master %s: create signal handler\n", timeVal);
 	//register signal handler
 	signal(SIGINT, signal_handler);
 
@@ -141,8 +140,8 @@ int main(int argc, char *argv[]) {
 	// this is the main loop
 	while (1) {
 
-		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: signal check\n", timeVal);
+//		getTime(timeVal);
+//		if (DEBUG && VERBOSE) printf("master %s: signal check\n", timeVal);
 
 		//what to do when signal encountered
 		if (signalIntercepted) { // signalIntercepted is set by signal handler
@@ -155,8 +154,8 @@ int main(int argc, char *argv[]) {
 //		getTime(timeVal);
 //		if (DEBUG && lastChildProcesses != childProcessCount) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
 
-		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: totalChildProcessCount check\n", timeVal);
+//		getTime(timeVal);
+//		if (DEBUG && VERBOSE) printf("master %s: totalChildProcessCount check\n", timeVal);
 
 		// we put limits on the number of processes and time
 		// if we hit limit then we kill em all
@@ -177,14 +176,14 @@ int main(int argc, char *argv[]) {
 			kill_detach_destroy_exit(0);
 		}
 
-		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: increment clock\n", timeVal);
+//		getTime(timeVal);
+//		if (DEBUG && VERBOSE) printf("master %s: increment clock\n", timeVal);
 
-		if (parentProcess && goClock) {
+		if (childpid != 0 && goClock) {
 			if (timeToStop == 0) {
 				struct timespec timeperiod;
-				timeperiod.tv_sec = 0;
-				timeperiod.tv_nsec = 100 * 1000 * 1000;
+				timeperiod.tv_sec = 1;
+				timeperiod.tv_nsec = 500 * 1000 * 1000;
 				nanosleep(&timeperiod, NULL);
 				timeStarted = getUnixTime();
 				timeToStop = timeStarted + (1000 * totalRunSeconds);
@@ -196,8 +195,8 @@ int main(int argc, char *argv[]) {
 			increment_clock();
 		}
 
-		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: childProcessCount check\n", timeVal);
+//		getTime(timeVal);
+//		if (DEBUG && VERBOSE) printf("master %s: childProcessCount check\n", timeVal);
 
 		// if we have forked up to the max concurrent child processes
 		// then we wait for one to exit before forking another
@@ -235,7 +234,7 @@ int main(int argc, char *argv[]) {
 
 		getTime(timeVal);
 //		if (childpid == 0)
-			printf("master %s: child %d post fork childpid: %d\n", timeVal, getpid(), childpid);
+			printf("master %s: process %d post fork childpid: %d\n", timeVal, getpid(), childpid);
 
 		// if error creating fork
 		if (childpid == -1) {
@@ -259,10 +258,9 @@ int main(int argc, char *argv[]) {
 
 		// parent will execute
 		if (childpid != 0) {
-			getTime(timeVal);
-			if (DEBUG && VERBOSE) printf("master %s: parent check\n", timeVal);
+//			getTime(timeVal);
+//			if (DEBUG && VERBOSE) printf("master %s: parent check\n", timeVal);
 
-			parentProcess = 1;
 			childpids[totalChildProcessCount] = childpid; // save child pids in an array
 			childProcessCount++; // because we forked above
 			totalChildProcessCount++;
@@ -273,7 +271,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: end of while loop\n", timeVal);
+		if (DEBUG && VERBOSE) printf("master %s: end of while loop pid: %d\n", timeVal, getpid());
 	} //end while loop
 
 	fclose(logFile);
