@@ -218,6 +218,7 @@ int main(int argc, char *argv[]) {
 		// if error creating fork
 		if (childpid == -1) {
 			perror("master: Failed to fork");
+			kill_detach_destroy_exit(1);
 			return 1;
 		}
 
