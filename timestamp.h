@@ -1,7 +1,7 @@
 //Christopher Bartz
 //cyb01b
 //CS4760 S02
-//Project 2
+//Project 3
 
 #ifndef TIMESTAMP_H_
 #define TIMESTAMP_H_

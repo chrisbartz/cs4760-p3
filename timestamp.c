@@ -1,7 +1,7 @@
 //Christopher Bartz
 //cyb01b
 //CS4760 S02
-//Project 2
+//Project 3
 
 //taken from https://stackoverflow.com/questions/3673226/how-to-print-time-in-format-2009-08-10-181754-811
 
