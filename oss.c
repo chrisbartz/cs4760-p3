@@ -31,18 +31,12 @@ int quantum = 10000;					// how many nanoseconds to increment each loop
 long timeStarted = 0;					// when the OSS clock started
 long timeToStop = 0;					// when the OSS should exit in real time
 
-//char* smOssSeconds;
-//char* smOssUSeconds;
-//char* shmMsg;
-//char* smUserSeconds;
-//char* smUserUSeconds;
 SmTimeStruct shmMsg;
 SmTimeStruct *p_shmMsg;
 pid_t childpids[5000]; 				// keep track of all spawned child pids
 
 sem_t *sem;
 
-//void trim_newline(char *string);
 void signal_handler(int signalIntercepted); // handle sigint interrupt
 void increment_clock(); // update oss clock in shared memory
 void kill_detach_destroy_exit(int status); // kill off all child processes and shared memory
@@ -159,19 +153,20 @@ int main(int argc, char *argv[]) {
 
 		// we put limits on the number of processes and time
 		// if we hit limit then we kill em all
-		if (totalChildProcessCount >= maxChildProcessCount			// process count limit
-				|| ossSeconds >= maxOssTimeLimitSeconds || 			// OSS time limit
+		if (/*totalChildProcessCount >= maxChildProcessCount			// process count limit
+				|| ossSeconds >= maxOssTimeLimitSeconds || */			// OSS time limit
 				(timeToStop != 0 && timeToStop < getUnixTime())) { 	// real time limit
 
 			char typeOfLimit[50];
 			strncpy(typeOfLimit,"",50);
 			if (totalChildProcessCount >= maxChildProcessCount) strncpy(typeOfLimit,"because of process limit",50);
 			if (ossSeconds > maxOssTimeLimitSeconds ) strncpy(typeOfLimit,"because of OSS time limit",50);
-			if (timeToStop != 0 && timeToStop < getUnixTime()) strncpy(typeOfLimit,"because of real time limit",50);
+			if (timeToStop != 0 && timeToStop < getUnixTime()) strncpy(typeOfLimit,"because of real time limit (20s)",50);
 
+			getTime(timeVal);
 //			if (TUNING)
-				printf("\nmaster %s: Halting %s.\nTotal Processes: %d\nOSS Seconds: %d\nStop Time:    %ld\nCurrent Time: %ld\n",
-					timeVal, typeOfLimit, totalChildProcessCount, ossSeconds, timeToStop, getUnixTime());
+				printf("\nmaster %s: Halting %s.\nTotal Processes: %d\nOSS Seconds: %d.%09d\nStop Time:    %ld\nCurrent Time: %ld\n",
+					timeVal, typeOfLimit, totalChildProcessCount, ossSeconds, ossUSeconds, timeToStop, getUnixTime());
 
 			kill_detach_destroy_exit(0);
 		}
@@ -181,10 +176,12 @@ int main(int argc, char *argv[]) {
 
 		if (childpid != 0 && goClock) {
 			if (timeToStop == 0) {
+				// wait for the child processes to get set up
 				struct timespec timeperiod;
-				timeperiod.tv_sec = 1;
-				timeperiod.tv_nsec = 500 * 1000 * 1000;
+				timeperiod.tv_sec = 0;
+				timeperiod.tv_nsec = 50 * 1000 * 1000;
 				nanosleep(&timeperiod, NULL);
+
 				timeStarted = getUnixTime();
 				timeToStop = timeStarted + (1000 * totalRunSeconds);
 				getTime(timeVal);
@@ -201,7 +198,13 @@ int main(int argc, char *argv[]) {
 		// if we have forked up to the max concurrent child processes
 		// then we wait for one to exit before forking another
 		if (childProcessCount >= maxConcSlaveProcesses) {
-			goClock = 1;
+			goClock = 1; // start the clock when max concurrent child processes are spawned
+
+			// reduce the cpu load from looping
+			struct timespec timeperiod;
+			timeperiod.tv_sec = 0;
+			timeperiod.tv_nsec = 5 * 1000;
+			nanosleep(&timeperiod, NULL);
 
 			// wait for child to send message
 			if (p_shmMsg->userPid == 0)
@@ -209,7 +212,6 @@ int main(int argc, char *argv[]) {
 
 			getTime(timeVal);
 //			if (DEBUG)
-//				printf("master %s: Child process %d has sent a message: %d.%09d\n", timeVal, atoi(shmMsg), atoi(smUserSeconds), atoi(smUserUSeconds));
 				printf("master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
 						timeVal, p_shmMsg->userPid, ossSeconds, ossUSeconds, p_shmMsg->userSeconds, p_shmMsg->userUSeconds);
 			fprintf(logFile,"master %s: Child %d is terminating at my time %d.%09d because it reached %d.%09d in slave\n",
@@ -224,8 +226,12 @@ int main(int argc, char *argv[]) {
 
 		}
 
+		if (totalChildProcessCount >= maxChildProcessCount) // we dont want to kill the processes automatically but dont want to fork any more
+			continue;
+
 		getTime(timeVal);
-		if (DEBUG && VERBOSE) printf("master %s: pre fork\n", timeVal);
+		if (DEBUG && VERBOSE) //printf("master %s: pre fork\n", timeVal);
+		printf("master %s: process %d pre fork childpid: %d\n", timeVal, getpid(), childpid);
 
 		char iStr[1];
 		sprintf(iStr, "%d", totalChildProcessCount);
@@ -245,12 +251,14 @@ int main(int argc, char *argv[]) {
 		// child will execute
 		if (childpid == 0) {
 			getTime(timeVal);
-			if (DEBUG && VERBOSE) printf("master %s: child check\n", timeVal);
+			if (DEBUG && VERBOSE) printf("master %s: child check pid: %d\n", timeVal, getpid());
 
 			getTime(timeVal);
 //			if (DEBUG)
-				printf("master %s: Child (fork #%d from parent) will attempt to execl user\n", timeVal, totalChildProcessCount);
-			execl("./user", iStr, NULL);
+				printf("master %s: Child %d (fork #%d from parent) will attempt to execl user\n", timeVal, getpid(), totalChildProcessCount);
+			int status = execl("./user", iStr, NULL);
+			getTime(timeVal);
+			if (status) printf("master %s: Child (fork #%d from parent) has failed to execl user error: %d\n", timeVal, totalChildProcessCount, errno);
 			perror("master: Child failed to execl() the command");
 			return 1;
 		}

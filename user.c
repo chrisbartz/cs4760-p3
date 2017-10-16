@@ -16,11 +16,6 @@
 #define TUNING 1
 #define WAIT_INTERVAL 50000 // max time to wait
 
-//char* smOssSeconds;
-//char* smOssUSeconds;
-//char* shmMsg;
-//char* smUserSeconds;
-//char* smUserUSeconds;
 SmTimeStruct shmMsg;
 SmTimeStruct *p_shmMsg;
 
@@ -69,9 +64,6 @@ if (childId < 0) {
 	startSeconds = p_shmMsg->ossSeconds;
 	startUSeconds = p_shmMsg->ossUSeconds;
 
-//	startSeconds = atoi(smOssSeconds);
-//	startUSeconds = atoi(smOssUSeconds);
-
 	endSeconds = startSeconds;
 	endUSeconds = startUSeconds + interval;
 
@@ -89,7 +81,14 @@ if (childId < 0) {
 	// open semaphore
 	sem_t *sem = open_semaphore(0);
 
-	while (!(p_shmMsg->ossSeconds > endSeconds && p_shmMsg->ossUSeconds > endUSeconds)); // wait for the end
+	struct timespec timeperiod;
+	timeperiod.tv_sec = 0;
+	timeperiod.tv_nsec = 5 * 1000;
+
+	while (!(p_shmMsg->ossSeconds > endSeconds && p_shmMsg->ossUSeconds > endUSeconds)) {
+		// reduce the cpu load from looping
+		nanosleep(&timeperiod, NULL);
+	} // wait for the end
 
 	// critical section
 	// implemented with semaphores
@@ -110,10 +109,6 @@ if (childId < 0) {
 	sem_post(sem);
 
 	// clean up shared memory
-//	detach_shared_memory(smOssSeconds);
-//	detach_shared_memory(smOssUSeconds);
-//	detach_shared_memory(smUserSeconds);
-//	detach_shared_memory(smUserUSeconds);
 	shmdt(p_shmMsg);
 
 	// close semaphore
@@ -127,7 +122,7 @@ exit(0);
 
 
 // this part should occur within the critical section if
-// implemented correctly since it accesses shared file resources
+// implemented correctly since it accesses shared resources
 void critical_section() {
 
 	while (p_shmMsg->userPid != 0); // wait until shmMsg is clear
