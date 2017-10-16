@@ -12,9 +12,9 @@
 #include "sharedMemory.h"
 #include "timestamp.h"
 
-#define DEBUG 1 // setting to 1 greatly increases number of logging events
-#define TUNING 1
-#define WAIT_INTERVAL 500000 // max time to wait
+#define DEBUG 0 // setting to 1 greatly increases number of logging events
+#define TUNING 0
+#define WAIT_INTERVAL 150 * 1000 * 1000 // max time to wait
 
 SmTimeStruct shmMsg;
 SmTimeStruct *p_shmMsg;

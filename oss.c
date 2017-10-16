@@ -16,9 +16,9 @@
 #include "sharedMemory.h"
 #include "timestamp.h"
 
-#define DEBUG 1 						// setting to 1 greatly increases number of logging events
-#define VERBOSE 1
-#define TUNING 1
+#define DEBUG 0 						// setting to 1 greatly increases number of logging events
+#define VERBOSE 0
+#define TUNING 0
 
 //int i = 0;
 int totalChildProcessCount = 0; 	// number of total child processes spawned
@@ -44,6 +44,7 @@ void kill_detach_destroy_exit(int status); // kill off all child processes and s
 int main(int argc, char *argv[]) {
 	int childProcessCount = 0;			// number of child processes spawned
 	int maxChildProcessCount = 100; 	// limit of total child processes spawned
+	int childProcessMessageCount = 0;
 	int opt; 							// to support argument switches below
 	pid_t childpid;						// store child pid
 	char timeVal[30]; 					// store formatted time string for display in logging
@@ -153,8 +154,8 @@ int main(int argc, char *argv[]) {
 
 		// we put limits on the number of processes and time
 		// if we hit limit then we kill em all
-		if (/*totalChildProcessCount >= maxChildProcessCount			// process count limit
-				|| ossSeconds >= maxOssTimeLimitSeconds || */			// OSS time limit
+		if (childProcessMessageCount >= maxChildProcessCount			// process count limit
+				|| ossSeconds >= maxOssTimeLimitSeconds || 			// OSS time limit
 				(timeToStop != 0 && timeToStop < getUnixTime())) { 	// real time limit
 
 			char typeOfLimit[50];
@@ -165,8 +166,8 @@ int main(int argc, char *argv[]) {
 
 			getTime(timeVal);
 //			if (TUNING)
-				printf("\nmaster %s: Halting %s.\nTotal Processes: %d\nOSS Seconds: %d.%09d\nStop Time:    %ld\nCurrent Time: %ld\n",
-					timeVal, typeOfLimit, totalChildProcessCount, ossSeconds, ossUSeconds, timeToStop, getUnixTime());
+				printf("\nmaster %s: Halting %s.\nTotal Processes Spawned: %d\nTotal Processes Reported Time: %d\nOSS Seconds: %d.%09d\nStop Time:    %ld\nCurrent Time: %ld\n",
+					timeVal, typeOfLimit, totalChildProcessCount, childProcessMessageCount, ossSeconds, ossUSeconds, timeToStop, getUnixTime());
 
 			kill_detach_destroy_exit(0);
 		}
@@ -221,17 +222,18 @@ int main(int argc, char *argv[]) {
 			p_shmMsg->userUSeconds = 0;
 			p_shmMsg->userPid = 0;
 
+			childProcessMessageCount++;
 			childProcessCount--; //because a child process completed
 			lastChildProcesses = childProcessCount;
 
 		}
 
-		if (totalChildProcessCount >= maxChildProcessCount) // we dont want to kill the processes automatically but dont want to fork any more
-			continue;
+//		if (totalChildProcessCount >= maxChildProcessCount) // we dont want to kill the processes automatically but dont want to fork any more
+//			continue;
 
 		getTime(timeVal);
-		if (DEBUG && VERBOSE) //printf("master %s: pre fork\n", timeVal);
-		printf("master %s: process %d pre fork childpid: %d\n", timeVal, getpid(), childpid);
+//		if (DEBUG && VERBOSE)
+//		printf("master %s: process %d pre fork childpid: %d\n", timeVal, getpid(), childpid);
 
 		char iStr[1];
 		sprintf(iStr, "%d", totalChildProcessCount);
@@ -240,7 +242,7 @@ int main(int argc, char *argv[]) {
 
 		getTime(timeVal);
 //		if (childpid == 0)
-			printf("master %s: process %d post fork childpid: %d\n", timeVal, getpid(), childpid);
+//			printf("master %s: process %d post fork childpid: %d\n", timeVal, getpid(), childpid);
 
 		// if error creating fork
 		if (childpid == -1) {
@@ -254,8 +256,7 @@ int main(int argc, char *argv[]) {
 			if (DEBUG && VERBOSE) printf("master %s: child check pid: %d\n", timeVal, getpid());
 
 			getTime(timeVal);
-//			if (DEBUG)
-				printf("master %s: Child %d (fork #%d from parent) will attempt to execl user\n", timeVal, getpid(), totalChildProcessCount);
+			if (DEBUG) printf("master %s: Child %d (fork #%d from parent) will attempt to execl user\n", timeVal, getpid(), totalChildProcessCount);
 			int status = execl("./user", iStr, NULL);
 			getTime(timeVal);
 			if (status) printf("master %s: Child (fork #%d from parent) has failed to execl user error: %d\n", timeVal, totalChildProcessCount, errno);

@@ -8,7 +8,7 @@
 
 #include "sharedMemory.h"
 
-#define DEBUG 1
+#define DEBUG 0
 #define SHMSIZE sizeof(SmTimeStruct)
 
 //int shmids[100]; // store all shmids generated
