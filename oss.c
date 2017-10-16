@@ -119,13 +119,9 @@ int main(int argc, char *argv[]) {
 	p_shmMsg->userUSeconds = 0;
 	p_shmMsg->userPid = 0;
 
-//	getTime(timeVal);
-//	if (DEBUG && VERBOSE) printf("master %s: create semaphore\n", timeVal);
 	// open semaphore
 	sem = open_semaphore(1);
 
-//	getTime(timeVal);
-//	if (DEBUG && VERBOSE) printf("master %s: create signal handler\n", timeVal);
 	//register signal handler
 	signal(SIGINT, signal_handler);
 
@@ -135,9 +131,6 @@ int main(int argc, char *argv[]) {
 	// this is the main loop
 	while (1) {
 
-//		getTime(timeVal);
-//		if (DEBUG && VERBOSE) printf("master %s: signal check\n", timeVal);
-
 		//what to do when signal encountered
 		if (signalIntercepted) { // signalIntercepted is set by signal handler
 			printf("\nmaster: //////////// oss terminating children due to a signal! //////////// \n\n");
@@ -145,12 +138,6 @@ int main(int argc, char *argv[]) {
 
 			kill_detach_destroy_exit(130);
 		}
-
-//		getTime(timeVal);
-//		if (DEBUG && lastChildProcesses != childProcessCount) printf("master %s: Child processes count: %d\n", timeVal, childProcessCount);
-
-//		getTime(timeVal);
-//		if (DEBUG && VERBOSE) printf("master %s: totalChildProcessCount check\n", timeVal);
 
 		// we put limits on the number of processes and time
 		// if we hit limit then we kill em all
@@ -172,9 +159,6 @@ int main(int argc, char *argv[]) {
 			kill_detach_destroy_exit(0);
 		}
 
-//		getTime(timeVal);
-//		if (DEBUG && VERBOSE) printf("master %s: increment clock\n", timeVal);
-
 		if (childpid != 0 && goClock) {
 			if (timeToStop == 0) {
 				// wait for the child processes to get set up
@@ -193,8 +177,6 @@ int main(int argc, char *argv[]) {
 			increment_clock();
 		}
 
-//		getTime(timeVal);
-//		if (DEBUG && VERBOSE) printf("master %s: childProcessCount check\n", timeVal);
 
 		// if we have forked up to the max concurrent child processes
 		// then we wait for one to exit before forking another
@@ -228,21 +210,10 @@ int main(int argc, char *argv[]) {
 
 		}
 
-//		if (totalChildProcessCount >= maxChildProcessCount) // we dont want to kill the processes automatically but dont want to fork any more
-//			continue;
-
-		getTime(timeVal);
-//		if (DEBUG && VERBOSE)
-//		printf("master %s: process %d pre fork childpid: %d\n", timeVal, getpid(), childpid);
-
 		char iStr[1];
 		sprintf(iStr, "%d", totalChildProcessCount);
 
 		childpid = fork();
-
-		getTime(timeVal);
-//		if (childpid == 0)
-//			printf("master %s: process %d post fork childpid: %d\n", timeVal, getpid(), childpid);
 
 		// if error creating fork
 		if (childpid == -1) {
@@ -267,8 +238,6 @@ int main(int argc, char *argv[]) {
 
 		// parent will execute
 		if (childpid != 0) {
-//			getTime(timeVal);
-//			if (DEBUG && VERBOSE) printf("master %s: parent check\n", timeVal);
 
 			childpids[totalChildProcessCount] = childpid; // save child pids in an array
 			childProcessCount++; // because we forked above
