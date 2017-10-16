@@ -329,6 +329,7 @@ void kill_detach_destroy_exit(int status) {
 	shmctl(SHM_MSG_KEY, IPC_RMID, NULL);
 
 	// close semaphore
+	sem_unlink(SEM_NAME);
 	close_semaphore(sem);
 	sem_destroy(sem);
 

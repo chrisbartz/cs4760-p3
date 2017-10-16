@@ -14,7 +14,7 @@
 
 #define DEBUG 1 // setting to 1 greatly increases number of logging events
 #define TUNING 1
-#define WAIT_INTERVAL 50000 // max time to wait
+#define WAIT_INTERVAL 500000 // max time to wait
 
 SmTimeStruct shmMsg;
 SmTimeStruct *p_shmMsg;
@@ -85,7 +85,7 @@ if (childId < 0) {
 	timeperiod.tv_sec = 0;
 	timeperiod.tv_nsec = 5 * 1000;
 
-	while (!(p_shmMsg->ossSeconds > endSeconds && p_shmMsg->ossUSeconds > endUSeconds)) {
+	while (!(p_shmMsg->ossSeconds >= endSeconds && p_shmMsg->ossUSeconds >= endUSeconds)) {
 		// reduce the cpu load from looping
 		nanosleep(&timeperiod, NULL);
 	} // wait for the end
