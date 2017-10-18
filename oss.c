@@ -213,7 +213,12 @@ int main(int argc, char *argv[]) {
 		char iStr[1];
 		sprintf(iStr, "%d", totalChildProcessCount);
 
-		childpid = fork();
+		int retryCount = 10;
+
+		while((childpid = fork()) < 0 && retryCount > 0) {
+			retryCount--;
+		}
+
 
 		// if error creating fork
 		if (childpid == -1) {
