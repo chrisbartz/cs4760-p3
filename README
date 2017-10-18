@@ -61,8 +61,8 @@ There are a few example commands that work for this project
 ./oss -s 6
 ./oss -t 5000
 ./oss -l notagreatcombo.log -q 1 -s 15 -t 5000
+./oss -l abettercombo.log -q 1000 -s 15 -t 10
 
-
-
+last minute note: the resource issue popped up last minute during testing on hoare.  Unfortunately cannot fix before turning in.
 
 
